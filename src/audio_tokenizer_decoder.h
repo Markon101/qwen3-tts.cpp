@@ -179,6 +179,7 @@ public:
     void set_n_threads(int32_t n_threads);
 
     const audio_decoder_config & get_config() const { return model_.config; }
+    const audio_decoder_model & get_model() const { return model_; }
     
     const std::string & get_error() const { return error_msg_; }
     
@@ -208,7 +209,8 @@ private:
     // Apply upsample block (ConvNeXt-style)
     struct ggml_tensor * apply_upsample_block(struct ggml_context * ctx,
                                                struct ggml_tensor * x,
-                                               const upsample_block & block);
+                                               const upsample_block & block,
+                                               int block_idx = 0);
     
     // Apply residual block
     struct ggml_tensor * apply_residual_block(struct ggml_context * ctx,

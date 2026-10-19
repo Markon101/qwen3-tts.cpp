@@ -496,63 +496,91 @@ struct ggml_tensor * AudioTokenizerDecoder::apply_pre_tfm_layer(struct ggml_cont
 }
 
 struct ggml_tensor * AudioTokenizerDecoder::apply_upsample_block(struct ggml_context * ctx,
-                                                                   struct ggml_tensor * x,
-                                                                   const upsample_block & block) {
+                                                                  struct ggml_tensor * x,
+                                                                  const upsample_block & block,
+                                                                  int block_idx) {
     int64_t seq_len = x->ne[0];
     int64_t channels = x->ne[1];
+    char prefix[16];
+    snprintf(prefix, sizeof(prefix), "up%d_", block_idx);
     
-     struct ggml_tensor * x_2d = ggml_reshape_2d(ctx, x, seq_len, channels);
-     x_2d = ggml_conv_transpose_1d(ctx, block.conv_w, x_2d, 2, 0, 1);
+    struct ggml_tensor * x_2d = ggml_reshape_2d(ctx, x, seq_len, channels);
+    x_2d = ggml_conv_transpose_1d(ctx, block.conv_w, x_2d, 2, 0, 1);
+    char name_conv_t[32]; snprintf(name_conv_t, sizeof(name_conv_t), "%sconv_t", prefix);
+    ggml_set_name(x_2d, name_conv_t);
      
-     int64_t new_seq_len = x_2d->ne[0];
-     x = ggml_reshape_3d(ctx, x_2d, new_seq_len, channels, 1);
+    int64_t new_seq_len = x_2d->ne[0];
+    x = ggml_reshape_3d(ctx, x_2d, new_seq_len, channels, 1);
      
-     if (block.conv_b) {
-         x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.conv_b, 1, channels, 1));
-     }
+    if (block.conv_b) {
+        x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.conv_b, 1, channels, 1));
+        char name_conv_b[32]; snprintf(name_conv_b, sizeof(name_conv_b), "%sconv_b", prefix);
+        ggml_set_name(x, name_conv_b);
+    }
     
-     struct ggml_tensor * residual = x;
+    struct ggml_tensor * residual = x;
      
-     if (block.dwconv_w) {
-         // Causal padding: pad left with 6 zeros (kernel_size - 1 = 7 - 1 = 6)
-         x = ggml_pad_ext(ctx, x, 6, 0, 0, 0, 0, 0, 0, 0);  // left pad only
-         x = ggml_conv_1d_dw(ctx, block.dwconv_w, x, 1, 0, 1);  // no padding in conv
-         if (block.dwconv_b) {
-             x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.dwconv_b, 1, channels, 1));
-         }
-     }
+    if (block.dwconv_w) {
+        // Causal padding: pad left with 6 zeros (kernel_size - 1 = 7 - 1 = 6)
+        x = ggml_pad_ext(ctx, x, 6, 0, 0, 0, 0, 0, 0, 0);  // left pad only
+        char name_pad[32]; snprintf(name_pad, sizeof(name_pad), "%spad", prefix);
+        ggml_set_name(x, name_pad);
+
+        x = ggml_conv_1d_dw(ctx, block.dwconv_w, x, 1, 0, 1);  // no padding in conv
+        char name_dwconv[32]; snprintf(name_dwconv, sizeof(name_dwconv), "%sdwconv", prefix);
+        ggml_set_name(x, name_dwconv);
+
+        if (block.dwconv_b) {
+            x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.dwconv_b, 1, channels, 1));
+            char name_dwconv_b[32]; snprintf(name_dwconv_b, sizeof(name_dwconv_b), "%sdwconv_b", prefix);
+            ggml_set_name(x, name_dwconv_b);
+        }
+    }
     
     x = ggml_permute(ctx, x, 1, 0, 2, 3);
     x = ggml_cont(ctx, x);
     
-     if (block.norm_w && block.norm_b) {
-         x = ggml_norm(ctx, x, 1e-6f);
-         x = ggml_mul(ctx, x, block.norm_w);
-         x = ggml_add(ctx, x, block.norm_b);
-     }
+    if (block.norm_w && block.norm_b) {
+        x = ggml_norm(ctx, x, 1e-6f);
+        x = ggml_mul(ctx, x, block.norm_w);
+        x = ggml_add(ctx, x, block.norm_b);
+        char name_norm[32]; snprintf(name_norm, sizeof(name_norm), "%snorm", prefix);
+        ggml_set_name(x, name_norm);
+    }
     
-     x = ggml_mul_mat(ctx, block.pwconv1_w, x);
-     if (block.pwconv1_b) {
-         x = ggml_add(ctx, x, block.pwconv1_b);
-     }
+    x = ggml_mul_mat(ctx, block.pwconv1_w, x);
+    if (block.pwconv1_b) {
+        x = ggml_add(ctx, x, block.pwconv1_b);
+    }
+    char name_pw1[32]; snprintf(name_pw1, sizeof(name_pw1), "%spw1", prefix);
+    ggml_set_name(x, name_pw1);
     
-     x = ggml_gelu(ctx, x);
+    x = ggml_gelu(ctx, x);
+    char name_gelu[32]; snprintf(name_gelu, sizeof(name_gelu), "%sgelu", prefix);
+    ggml_set_name(x, name_gelu);
     
-     x = ggml_mul_mat(ctx, block.pwconv2_w, x);
-     if (block.pwconv2_b) {
-         x = ggml_add(ctx, x, block.pwconv2_b);
-     }
+    x = ggml_mul_mat(ctx, block.pwconv2_w, x);
+    if (block.pwconv2_b) {
+        x = ggml_add(ctx, x, block.pwconv2_b);
+    }
+    char name_pw2[32]; snprintf(name_pw2, sizeof(name_pw2), "%spw2", prefix);
+    ggml_set_name(x, name_pw2);
     
     x = ggml_permute(ctx, x, 1, 0, 2, 3);
     x = ggml_cont(ctx, x);
     
-     if (block.gamma) {
-         struct ggml_tensor * gamma_3d = ggml_reshape_3d(ctx, block.gamma, 1, channels, 1);
-         x = ggml_mul(ctx, x, ggml_repeat(ctx, gamma_3d, 
-                                           ggml_new_tensor_3d(ctx, GGML_TYPE_F32, new_seq_len, channels, 1)));
-     }
+    if (block.gamma) {
+        struct ggml_tensor * gamma_3d = ggml_reshape_3d(ctx, block.gamma, 1, channels, 1);
+        x = ggml_mul(ctx, x, ggml_repeat(ctx, gamma_3d, 
+                                          ggml_new_tensor_3d(ctx, GGML_TYPE_F32, new_seq_len, channels, 1)));
+        char name_gamma[32]; snprintf(name_gamma, sizeof(name_gamma), "%sgamma", prefix);
+        ggml_set_name(x, name_gamma);
+    }
     
-    return ggml_add(ctx, residual, x);
+    struct ggml_tensor * res_out = ggml_add(ctx, residual, x);
+    char name_out[32]; snprintf(name_out, sizeof(name_out), "%sout", prefix);
+    ggml_set_name(res_out, name_out);
+    return res_out;
 }
 
 struct ggml_tensor * AudioTokenizerDecoder::apply_residual_block(struct ggml_context * ctx,
@@ -746,7 +774,7 @@ struct ggml_cgraph * AudioTokenizerDecoder::build_graph(int32_t n_frames) {
      ggml_set_name(cur, "pre_tfm_reshaped");
     
      for (int i = 0; i < 2; ++i) {
-         cur = apply_upsample_block(ctx0, cur, model_.upsample[i]);
+         cur = apply_upsample_block(ctx0, cur, model_.upsample[i], i);
      }
      
      ggml_set_name(cur, "upsample_output");
@@ -862,12 +890,78 @@ bool AudioTokenizerDecoder::decode(const int32_t * codes, int32_t n_frames,
     }
     int64_t t_inputs = ggml_time_us();
     
+    bool is_cpu_backend = ggml_backend_is_cpu(state_.backend);
+    bool debug_vocoder = (getenv("QWEN3_TTS_DEBUG_VOCODER") != nullptr);
+    if (debug_vocoder) {
+        auto debug_cb = [](struct ggml_tensor * t, bool ask, void * user_data) -> bool {
+            if (ask) return true;
+            const char * name = ggml_get_name(t);
+            if (!name || strlen(name) == 0) return true;
+            static const char * check_names[] = {
+                "codes_cb0", "first_emb_raw", "first_proj_2d", "rest_proj_2d", "latent_2d", "pre_conv_output",
+                "pre_tfm_input", "pre_tfm_output", "upsample_output",
+                "dec0_output", "dec1_output", "dec2_output", "dec3_output",
+                "dec4_output", "dec5_output", "dec6_output", "audio"
+            };
+            bool match = (strncmp(name, "up0_", 4) == 0 || strncmp(name, "up1_", 4) == 0);
+            if (!match) {
+                for (const char * cn : check_names) {
+                    if (strcmp(name, cn) == 0) { match = true; break; }
+                }
+            }
+            if (!match) return true;
+            bool is_cpu = *(bool *)user_data;
+            size_t n = ggml_nelements(t);
+            float v0 = 0, v1 = 0;
+            double sum = 0, sq = 0;
+            size_t step = std::max((size_t)1, n / 100);
+            size_t count = 0;
+            for (size_t i = 0; i < n; i += step) {
+                float v = 0;
+                if (t->type == GGML_TYPE_F32) {
+                    ggml_backend_tensor_get(t, &v, i * sizeof(float), sizeof(float));
+                } else if (t->type == GGML_TYPE_F16) {
+                    ggml_fp16_t hv = 0;
+                    ggml_backend_tensor_get(t, &hv, i * sizeof(ggml_fp16_t), sizeof(ggml_fp16_t));
+                    v = ggml_fp16_to_fp32(hv);
+                } else if (t->type == GGML_TYPE_I32) {
+                    int32_t iv = 0;
+                    ggml_backend_tensor_get(t, &iv, i * sizeof(int32_t), sizeof(int32_t));
+                    v = (float)iv;
+                }
+                if (i == 0) v0 = v;
+                sum += v;
+                sq += (double)v * v;
+                count++;
+            }
+            if (n > 1) {
+                if (t->type == GGML_TYPE_F32) {
+                    ggml_backend_tensor_get(t, &v1, sizeof(float), sizeof(float));
+                } else if (t->type == GGML_TYPE_F16) {
+                    ggml_fp16_t hv = 0;
+                    ggml_backend_tensor_get(t, &hv, sizeof(ggml_fp16_t), sizeof(ggml_fp16_t));
+                    v1 = ggml_fp16_to_fp32(hv);
+                }
+            }
+            fprintf(stderr, "  [DEBUG %s] %-16s shape=[%5lld,%5lld,%2lld] mean=%10.5f rms=%10.5f v0=%10.5f v1=%10.5f\n",
+                    is_cpu ? "CPU" : "GPU",
+                    name, (long long)t->ne[0], (long long)t->ne[1], (long long)t->ne[2],
+                    (float)(sum / count), (float)sqrt(sq / count), v0, v1);
+            return true;
+        };
+        ggml_backend_sched_set_eval_callback(state_.sched, debug_cb, &is_cpu_backend);
+    }
+    
     if (ggml_backend_sched_graph_compute(state_.sched, gf) != GGML_STATUS_SUCCESS) {
         error_msg_ = "Failed to compute graph";
         ggml_backend_sched_reset(state_.sched);
         return false;
     }
     int64_t t_compute = ggml_time_us();
+
+    if (debug_vocoder) {
+        ggml_backend_sched_set_eval_callback(state_.sched, nullptr, nullptr);
+    }
     
     struct ggml_tensor * audio_tensor = ggml_graph_get_tensor(gf, "audio");
     if (!audio_tensor) {
