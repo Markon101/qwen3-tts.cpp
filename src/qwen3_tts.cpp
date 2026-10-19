@@ -98,6 +98,24 @@ static bool get_process_memory_snapshot(process_memory_snapshot & out) {
     out.phys_footprint_bytes = (uint64_t)pmc.PrivateUsage;
     return true;
 #else
+    uint64_t vm_rss_kb = 0, vm_hwm_kb = 0;
+    FILE * fp = fopen("/proc/self/status", "r");
+    if (fp) {
+        char line[256];
+        while (fgets(line, sizeof(line), fp)) {
+            if (strncmp(line, "VmRSS:", 6) == 0) {
+                sscanf(line + 6, "%llu", (unsigned long long *)&vm_rss_kb);
+            } else if (strncmp(line, "VmHWM:", 6) == 0) {
+                sscanf(line + 6, "%llu", (unsigned long long *)&vm_hwm_kb);
+            }
+        }
+        fclose(fp);
+    }
+    if (vm_rss_kb > 0 || vm_hwm_kb > 0) {
+        out.rss_bytes            = vm_rss_kb * 1024ULL;
+        out.phys_footprint_bytes = (vm_hwm_kb > 0 ? vm_hwm_kb : vm_rss_kb) * 1024ULL;
+        return true;
+    }
     struct rusage usage = {};
     if (getrusage(RUSAGE_SELF, &usage) != 0) return false;
     out.rss_bytes            = (uint64_t)usage.ru_maxrss * 1024ULL;
@@ -669,9 +687,24 @@ bool Qwen3TTS::decode_codes(const std::vector<int32_t> & codes,
     }
 
     int64_t t0 = get_time_ms();
-    if (!audio_decoder_.decode(codes.data(), n_frames, result.audio)) {
-        result.error_msg = "Vocoder decode failed: " + audio_decoder_.get_error();
-        return false;
+    const int32_t chunk_limit = 100;
+    if (n_frames <= chunk_limit) {
+        if (!audio_decoder_.decode(codes.data(), n_frames, result.audio)) {
+            result.error_msg = "Vocoder decode failed: " + audio_decoder_.get_error();
+            return false;
+        }
+    } else {
+        result.audio.clear();
+        for (int32_t base = 0; base < n_frames; base += chunk_limit) {
+            int32_t this_chunk = std::min(chunk_limit, n_frames - base);
+            std::vector<float> chunk_audio;
+            if (!audio_decoder_.decode(codes.data() + (size_t)base * n_cb,
+                                       this_chunk, chunk_audio)) {
+                result.error_msg = "Vocoder decode failed: " + audio_decoder_.get_error();
+                return false;
+            }
+            result.audio.insert(result.audio.end(), chunk_audio.begin(), chunk_audio.end());
+        }
     }
     result.t_decode_ms = get_time_ms() - t0;
 
@@ -878,7 +911,10 @@ std::vector<tts_result> Qwen3TTS::synthesize_batch(
             params.temperature = 0.0f;
     }
 
-    if (params.n_threads > 0) transformer_.set_n_threads(params.n_threads);
+    if (params.n_threads > 0) {
+        transformer_.set_n_threads(params.n_threads);
+        audio_decoder_.set_n_threads(params.n_threads);
+    }
 
     // Wire extended sampling params
     transformer_.set_extended_sampling(
@@ -1414,6 +1450,7 @@ tts_result Qwen3TTS::synthesize_internal(const std::string & text,
     // Apply thread count (default 4 → use all available cores for speed)
     if (params.n_threads > 0) {
         transformer_.set_n_threads(params.n_threads);
+        audio_decoder_.set_n_threads(params.n_threads);
     }
 
     // Wire extended sampling parameters into the transformer generate loop

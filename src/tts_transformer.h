@@ -186,6 +186,9 @@ struct tts_transformer_model {
     
     // Tensor name to tensor mapping
     std::map<std::string, struct ggml_tensor *> tensors;
+
+    // Host-side raw cache for codec_embd and code_pred_embd[0..14] to avoid GPU roundtrips/splits
+    std::map<const struct ggml_tensor *, std::vector<uint8_t>> host_embd_raw;
 };
 
 // KV cache for autoregressive generation

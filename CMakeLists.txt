@@ -11,7 +11,11 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Compiler flags
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64" AND NOT APPLE)
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -mcpu=oryon-1+fp16+fp16fml+dotprod+i8mm+bf16")
+    else()
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native")
+    endif()
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 elseif(MSVC)
     # Parallel compilation within each target (significant speedup for large files)
@@ -63,7 +67,9 @@ find_package(Threads REQUIRED)
 
 # GGML library paths
 set(GGML_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ggml")
-set(GGML_BUILD_DIR "${GGML_DIR}/build")
+if(NOT DEFINED GGML_BUILD_DIR)
+    set(GGML_BUILD_DIR "${GGML_DIR}/build")
+endif()
 
 # GGML link search dirs: flat (Ninja/Make) and config-suffixed (MSVC multi-config)
 set(GGML_LINK_DIRS
@@ -72,6 +78,9 @@ set(GGML_LINK_DIRS
     ${GGML_BUILD_DIR}/src/Release
     ${GGML_BUILD_DIR}/src/Debug
     ${GGML_BUILD_DIR}/src/ggml-metal
+    ${GGML_BUILD_DIR}/src/ggml-vulkan
+    ${GGML_BUILD_DIR}/src/ggml-opencl
+    ${GGML_BUILD_DIR}/src/ggml-cuda
 )
 
 # Detect Metal backend availability
@@ -85,9 +94,10 @@ endif()
 # Detect CUDA backend availability
 if(EXISTS "${GGML_BUILD_DIR}/src/ggml-cuda")
     file(GLOB GGML_CUDA_LIBS
-        "${GGML_BUILD_DIR}/bin/ggml-cuda*${CMAKE_SHARED_LIBRARY_SUFFIX}"
-        "${GGML_BUILD_DIR}/src/ggml-cuda*${CMAKE_SHARED_LIBRARY_SUFFIX}"
-        "${GGML_BUILD_DIR}/src/Release/ggml-cuda*${CMAKE_SHARED_LIBRARY_SUFFIX}")
+        "${GGML_BUILD_DIR}/bin/*ggml-cuda*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "${GGML_BUILD_DIR}/src/*ggml-cuda*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "${GGML_BUILD_DIR}/src/ggml-cuda/*ggml-cuda*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "${GGML_BUILD_DIR}/src/Release/*ggml-cuda*${CMAKE_SHARED_LIBRARY_SUFFIX}")
     if(GGML_CUDA_LIBS)
         set(GGML_HAS_CUDA ON)
         message(STATUS "GGML CUDA backend found — GPU acceleration enabled (NVIDIA)")
@@ -101,9 +111,10 @@ endif()
 # Detect Vulkan backend availability
 if(EXISTS "${GGML_BUILD_DIR}/src/ggml-vulkan")
     file(GLOB GGML_VULKAN_LIBS
-        "${GGML_BUILD_DIR}/bin/ggml-vulkan*${CMAKE_SHARED_LIBRARY_SUFFIX}"
-        "${GGML_BUILD_DIR}/src/ggml-vulkan*${CMAKE_SHARED_LIBRARY_SUFFIX}"
-        "${GGML_BUILD_DIR}/src/Release/ggml-vulkan*${CMAKE_SHARED_LIBRARY_SUFFIX}")
+        "${GGML_BUILD_DIR}/bin/*ggml-vulkan*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "${GGML_BUILD_DIR}/src/*ggml-vulkan*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "${GGML_BUILD_DIR}/src/ggml-vulkan/*ggml-vulkan*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "${GGML_BUILD_DIR}/src/Release/*ggml-vulkan*${CMAKE_SHARED_LIBRARY_SUFFIX}")
     if(GGML_VULKAN_LIBS)
         set(GGML_HAS_VULKAN ON)
         message(STATUS "GGML Vulkan backend found — GPU acceleration enabled (cross-platform)")
@@ -114,7 +125,24 @@ else()
     set(GGML_HAS_VULKAN OFF)
 endif()
 
-if(NOT GGML_HAS_METAL AND NOT GGML_HAS_CUDA AND NOT GGML_HAS_VULKAN)
+# Detect OpenCL backend availability
+if(EXISTS "${GGML_BUILD_DIR}/src/ggml-opencl")
+    file(GLOB GGML_OPENCL_LIBS
+        "${GGML_BUILD_DIR}/bin/*ggml-opencl*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "${GGML_BUILD_DIR}/src/*ggml-opencl*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "${GGML_BUILD_DIR}/src/ggml-opencl/*ggml-opencl*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "${GGML_BUILD_DIR}/src/Release/*ggml-opencl*${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    if(GGML_OPENCL_LIBS)
+        set(GGML_HAS_OPENCL ON)
+        message(STATUS "GGML OpenCL backend found — GPU acceleration enabled (Adreno/OpenCL)")
+    else()
+        set(GGML_HAS_OPENCL OFF)
+    endif()
+else()
+    set(GGML_HAS_OPENCL OFF)
+endif()
+
+if(NOT GGML_HAS_METAL AND NOT GGML_HAS_CUDA AND NOT GGML_HAS_VULKAN AND NOT GGML_HAS_OPENCL)
     message(STATUS "No GPU backend detected — running on CPU only")
     message(STATUS "  For GPU acceleration:")
     message(STATUS "    macOS:   cmake -S ggml -B ggml/build -DGGML_METAL=ON")
@@ -139,6 +167,15 @@ target_link_libraries(gguf_loader PUBLIC
 )
 if(GGML_HAS_METAL)
     target_link_libraries(gguf_loader PUBLIC ggml-metal "-framework Metal" "-framework MetalKit")
+endif()
+if(GGML_HAS_VULKAN)
+    target_link_libraries(gguf_loader PUBLIC ggml-vulkan)
+endif()
+if(GGML_HAS_OPENCL)
+    target_link_libraries(gguf_loader PUBLIC ggml-opencl)
+endif()
+if(GGML_HAS_CUDA)
+    target_link_libraries(gguf_loader PUBLIC ggml-cuda)
 endif()
 
 # Text tokenizer library

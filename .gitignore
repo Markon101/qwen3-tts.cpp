@@ -73,3 +73,6 @@ build-vulkan/
 build-metal/
 build-cuda/
 build-old/
+build-cpu/
+build-opencl/
+models

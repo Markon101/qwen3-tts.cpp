@@ -875,6 +875,10 @@ bool TTSTransformer::load_tensor_data(const std::string & path, struct gguf_cont
         }
         
         ggml_backend_tensor_set(tensor, read_buf.data(), 0, nbytes);
+
+        if (tensor == model_.codec_embd || strstr(name, "code_pred.codec_embd.") != nullptr) {
+            model_.host_embd_raw[tensor] = read_buf;
+        }
     }
     
     fclose(f);
@@ -1135,9 +1139,6 @@ bool TTSTransformer::init_code_pred_kv_cache(int32_t n_ctx, int32_t n_batch) {
 
 void TTSTransformer::clear_code_pred_kv_cache() {
     state_.code_pred_cache.n_used = 0;
-    if (state_.code_pred_cache.buffer) {
-        ggml_backend_buffer_clear(state_.code_pred_cache.buffer, 0);
-    }
 }
 
 bool TTSTransformer::lookup_embedding_rows(struct ggml_tensor * embedding, const int32_t * token_ids,
@@ -1157,8 +1158,9 @@ bool TTSTransformer::lookup_embedding_rows(struct ggml_tensor * embedding, const
     }
 
     const int32_t embd_dim = (int32_t) embedding->ne[0];
-    if (n_tokens <= 32 &&
-        (embedding->type == GGML_TYPE_F16 || embedding->type == GGML_TYPE_F32)) {
+    if (model_.host_embd_raw.find(embedding) != model_.host_embd_raw.end() ||
+        (n_tokens <= 32 &&
+         (embedding->type == GGML_TYPE_F16 || embedding->type == GGML_TYPE_F32))) {
         output.resize((size_t) embd_dim * n_tokens);
         for (int32_t t = 0; t < n_tokens; ++t) {
             if (!lookup_single_embedding_row(embedding, token_ids[t],
@@ -1241,6 +1243,20 @@ bool TTSTransformer::lookup_single_embedding_row(struct ggml_tensor * embedding,
     }
 
     const size_t row_offset = (size_t) token_id * embedding->nb[1];
+    auto host_it = model_.host_embd_raw.find(embedding);
+    if (host_it != model_.host_embd_raw.end()) {
+        const uint8_t * row_ptr = host_it->second.data() + row_offset;
+        if (embedding->type == GGML_TYPE_F32) {
+            memcpy(out_row, row_ptr, (size_t) embd_dim * sizeof(float));
+            return true;
+        }
+        const auto * traits = ggml_get_type_traits(embedding->type);
+        if (traits && traits->to_float) {
+            traits->to_float(row_ptr, out_row, embd_dim);
+            return true;
+        }
+    }
+
     if (embedding->type == GGML_TYPE_F32) {
         ggml_backend_tensor_get(embedding, out_row, row_offset, (size_t) embd_dim * sizeof(float));
         return true;
@@ -2063,28 +2079,16 @@ struct ggml_cgraph * TTSTransformer::build_code_pred_step_graph(int32_t n_past, 
     struct ggml_context * ctx0 = ggml_init(params);
     struct ggml_cgraph * gf = ggml_new_graph_custom(ctx0, QWEN3_TTS_MAX_NODES, false);
     
-    // Input in talker space: step 0 = hidden state, step 1+ = codec_embedding lookup
+    // Input in talker space: step 0 = hidden state, step 1+ = host-looked-up codec_embedding
     struct ggml_tensor * inp_hidden = ggml_new_tensor_1d(ctx0, GGML_TYPE_F32, talker_hs);
     ggml_set_name(inp_hidden, "inp_hidden");
     ggml_set_input(inp_hidden);
-    
-    struct ggml_tensor * inp_code = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, 1);
-    ggml_set_name(inp_code, "inp_code");
-    ggml_set_input(inp_code);
     
     struct ggml_tensor * inp_pos = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, 1);
     ggml_set_name(inp_pos, "inp_pos");
     ggml_set_input(inp_pos);
     
-    struct ggml_tensor * cur;
-    if (generation_step == 0) {
-        // Step 0: hidden state is in talker space, project to code predictor space
-        cur = ggml_reshape_2d(ctx0, inp_hidden, talker_hs, 1);
-    } else {
-        // Step 1+: codec_embedding is in talker space
-        cur = ggml_get_rows(ctx0, model_.code_pred_embd[generation_step - 1], inp_code);
-        cur = ggml_reshape_2d(ctx0, cur, talker_hs, 1);
-    }
+    struct ggml_tensor * cur = ggml_reshape_2d(ctx0, inp_hidden, talker_hs, 1);
     // Project from talker space to code predictor space (if different)
     if (model_.code_pred_proj) {
         cur = ggml_mul_mat(ctx0, model_.code_pred_proj, cur);
@@ -2444,6 +2448,23 @@ bool TTSTransformer::forward_step(const float * step_embd, int32_t n_past,
     if (!ggml_backend_sched_alloc_graph(state_.sched, gf)) {
         error_msg_ = "Failed to allocate graph";
         return false;
+    }
+    static bool printed_step_splits = false;
+    if (!printed_step_splits) {
+        fprintf(stderr, "  [Talker Step] Graph splits: %d\n",
+                ggml_backend_sched_get_n_splits(state_.sched));
+        std::map<std::string, int> cpu_ops;
+        for (int i = 0; i < ggml_graph_n_nodes(gf); ++i) {
+            struct ggml_tensor * node = ggml_graph_node(gf, i);
+            if (ggml_backend_sched_get_tensor_backend(state_.sched, node) == state_.backend_cpu) {
+                cpu_ops[ggml_op_name(node->op)]++;
+            }
+        }
+        fprintf(stderr, "  [Talker Step] Ops placed on CPU:\n");
+        for (auto & kv : cpu_ops) {
+            fprintf(stderr, "    - %s: %d\n", kv.first.c_str(), kv.second);
+        }
+        printed_step_splits = true;
     }
 #ifdef QWEN3_TTS_TIMING
     t1 = clk::now();
@@ -2846,6 +2867,7 @@ bool TTSTransformer::predict_codes_autoregressive(const float * hidden, int32_t 
 #ifdef QWEN3_TTS_TIMING
     auto t_steps_start = clk::now();
 #endif
+    std::vector<float> step_embd(cfg.hidden_size);
     for (int step = 1; step < 15; ++step) {
         int32_t n_past = step + 1;
 
@@ -2865,6 +2887,23 @@ bool TTSTransformer::predict_codes_autoregressive(const float * hidden, int32_t 
             error_msg_ = "Failed to allocate code predictor step graph";
             return false;
         }
+        static bool printed_codepred_splits = false;
+        if (!printed_codepred_splits) {
+            fprintf(stderr, "  [CodePred Step] Graph splits: %d\n",
+                    ggml_backend_sched_get_n_splits(state_.sched));
+            std::map<std::string, int> cpu_ops;
+            for (int i = 0; i < ggml_graph_n_nodes(gf); ++i) {
+                struct ggml_tensor * node = ggml_graph_node(gf, i);
+                if (ggml_backend_sched_get_tensor_backend(state_.sched, node) == state_.backend_cpu) {
+                    cpu_ops[ggml_op_name(node->op)]++;
+                }
+            }
+            fprintf(stderr, "  [CodePred Step] Ops placed on CPU:\n");
+            for (auto & kv : cpu_ops) {
+                fprintf(stderr, "    - %s: %d\n", kv.first.c_str(), kv.second);
+            }
+            printed_codepred_splits = true;
+        }
 #ifdef QWEN3_TTS_TIMING
         t1 = clk::now();
         if (timing_) timing_->t_code_pred_graph_alloc_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -2873,15 +2912,13 @@ bool TTSTransformer::predict_codes_autoregressive(const float * hidden, int32_t 
 #ifdef QWEN3_TTS_TIMING
         t0 = clk::now();
 #endif
+        if (!lookup_single_embedding_row(model_.code_pred_embd[step - 1], output[step - 1], step_embd.data())) {
+            ggml_backend_sched_reset(state_.sched);
+            return false;
+        }
         struct ggml_tensor * inp_hidden = ggml_graph_get_tensor(gf, "inp_hidden");
         if (inp_hidden) {
-            ggml_backend_tensor_set(inp_hidden, hidden, 0, cfg.hidden_size * sizeof(float));
-        }
-        
-        struct ggml_tensor * inp_code = ggml_graph_get_tensor(gf, "inp_code");
-        if (inp_code) {
-            int32_t prev_code = output[step - 1];
-            ggml_backend_tensor_set(inp_code, &prev_code, 0, sizeof(int32_t));
+            ggml_backend_tensor_set(inp_hidden, step_embd.data(), 0, cfg.hidden_size * sizeof(float));
         }
         
         struct ggml_tensor * inp_pos = ggml_graph_get_tensor(gf, "inp_pos");
@@ -4369,6 +4406,7 @@ void free_transformer_model(tts_transformer_model & model) {
     model.code_pred_head.clear();
     model.code_pred_proj = nullptr;
     model.code_pred_proj_bias = nullptr;
+    model.host_embd_raw.clear();
 }
 
 void free_tts_kv_cache(tts_kv_cache & cache) {

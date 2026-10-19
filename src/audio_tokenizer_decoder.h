@@ -146,12 +146,13 @@ struct audio_decoder_model {
     std::map<std::string, struct ggml_tensor *> tensors;
 };
 
-// Compute state for decoder
 struct audio_decoder_state {
     ggml_backend_t backend = nullptr;
     ggml_backend_t backend_cpu = nullptr;
     ggml_backend_sched_t sched = nullptr;
     std::vector<uint8_t> compute_meta;
+    struct ggml_threadpool * threadpool = nullptr;
+    int32_t                  threadpool_n = 0;
 };
 
 // Audio tokenizer decoder (vocoder) class
@@ -174,6 +175,9 @@ public:
     bool decode(const int32_t * codes, int32_t n_frames,
                 std::vector<float> & samples);
     
+    // Set CPU thread count and threadpool for vocoder decode
+    void set_n_threads(int32_t n_threads);
+
     const audio_decoder_config & get_config() const { return model_.config; }
     
     const std::string & get_error() const { return error_msg_; }

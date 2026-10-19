@@ -394,6 +394,9 @@ static int run_server(qwen3_tts::Qwen3TTS & tts, const qwen3_tts::tts_params & d
         int max_tok = json_get_int(line, "max_tokens", -999);
         if (max_tok > -998) params.max_audio_tokens = max_tok;
 
+        int req_threads = json_get_int(line, "threads", -999);
+        if (req_threads > 0) params.n_threads = req_threads;
+
         // Synthesize
         if (!ref_text.empty()) {
             params.ref_text = ref_text;
@@ -442,10 +445,16 @@ static int run_server(qwen3_tts::Qwen3TTS & tts, const qwen3_tts::tts_params & d
         fprintf(stderr, "[server] Request %d: done — %.2fs audio in %lldms → %s\n",
                 request_num, duration_s, (long long)result.t_total_ms, output_file.c_str());
 
-        printf("{\"success\":true,\"output\":\"%s\",\"duration_s\":%.3f,\"t_total_ms\":%lld}\n",
+        printf("{\"success\":true,\"output\":\"%s\",\"duration_s\":%.3f,\"t_tokenize_ms\":%lld,\"t_encode_ms\":%lld,\"t_generate_ms\":%lld,\"t_decode_ms\":%lld,\"t_total_ms\":%lld,\"rss_bytes\":%llu,\"peak_rss_bytes\":%llu}\n",
                json_escape(output_file).c_str(),
                duration_s,
-               (long long)result.t_total_ms);
+               (long long)result.t_tokenize_ms,
+               (long long)result.t_encode_ms,
+               (long long)result.t_generate_ms,
+               (long long)result.t_decode_ms,
+               (long long)result.t_total_ms,
+               (unsigned long long)result.mem_rss_end_bytes,
+               (unsigned long long)result.mem_phys_peak_bytes);
         fflush(stdout);
     }
 
