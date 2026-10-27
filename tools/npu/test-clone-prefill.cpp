@@ -189,6 +189,28 @@ static int real_controls(qwen3_tts::TTSTransformer &transformer,
         passed = shape && passed;
         passed = tensor_result(dir, "real-forward-hidden", output, record) && passed;
         passed = tensor_result(dir, "real-forward-logits", logits, record) && passed;
+        // Continue from this exact frozen prefill KV state. The CPU-built last
+        // input row is reused unchanged on both backends: no sampled feedback.
+        const float *fixed_step = frozen.data() + (length - 1) * hidden;
+        for (int step = 0; step < 8; ++step) {
+            std::vector<float> step_hidden, step_logits;
+            std::string name = "real-step-" + std::to_string(step);
+            if (!transformer.forward_step(fixed_step, length + step, step_logits, &step_hidden)) {
+                fprintf(stderr, "%s: %s\n", name.c_str(), transformer.get_error().c_str());
+                printf("REAL_STEP {\"step\":%d,\"n_past\":%zu,\"pass\":false}\n",
+                       step, length + step);
+                passed = false;
+                break; // A failed forward cannot provide a valid next-step KV state.
+            }
+            bool step_shape = step_hidden.size() == size_t(hidden) &&
+                              step_logits.size() == size_t(cfg.codec_vocab_size);
+            printf("REAL_STEP {\"step\":%d,\"n_past\":%zu,\"hidden_floats\":%zu,"
+                   "\"logit_count\":%zu,\"shape_pass\":%s}\n", step, length + step,
+                   step_hidden.size(), step_logits.size(), step_shape ? "true" : "false");
+            passed = step_shape && passed;
+            passed = tensor_result(dir, name + "-hidden", step_hidden, record) && passed;
+            passed = tensor_result(dir, name + "-logits", step_logits, record) && passed;
+        }
     }
     const char *generate = getenv("QWEN3_TTS_CLONE_GENERATE");
     if (generate && !strcmp(generate, "1")) {
