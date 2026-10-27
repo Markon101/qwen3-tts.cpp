@@ -1,0 +1,488 @@
+{
+  "device": "Samsung S25 Ultra / Snapdragon 8 Elite / Adreno 830",
+  "driver": "OpenCL 3.0 QUALCOMM build: 0800.64.8 Compiler E031.47.18.56",
+  "scope": "Recorded phone measurements. Models, voice assets, audio, codes, private paths and binaries are not distributed.",
+  "runs": {
+    "checked-gpu-a": {
+      "model": "0.6B Q8_0",
+      "speaker_conditioned": true,
+      "language": "english",
+      "seed": 20261026,
+      "temperature": 0.9,
+      "sub_temperature": 0.9,
+      "threads": 4,
+      "affinity": null,
+      "small2": false,
+      "hybrid": false,
+      "temperature_limits": {
+        "gpu_c": 85,
+        "battery_c": 41
+      },
+      "startup_ready_s": 9.133584736002376,
+      "exit_code": 0,
+      "failure": null,
+      "all_foreground": true,
+      "max_gpu_c": 79.9,
+      "max_cpu_c": 103.8,
+      "max_battery_c": 33.1,
+      "requests": [
+        {
+          "duration_s": 0.64,
+          "t_generate_ms": 1127,
+          "t_decode_ms": 356,
+          "t_total_ms": 1483,
+          "frame_cap": 8,
+          "pcm_stats": {
+            "nonzero": 15351,
+            "samples": 15360,
+            "peak": 9474,
+            "rms": 0.07225935992912505
+          },
+          "codes_sha256": "5adb80ffbe0458d8d56f2ed21d6dd6a2b34088c0390eac85ab488a244f12394c",
+          "wav_sha256": "fbd874534104fa15b8deca929e22aacc9fca729d22f97fb9ec316cf9ffe0ad45"
+        },
+        {
+          "duration_s": 0.96,
+          "t_generate_ms": 863,
+          "t_decode_ms": 531,
+          "t_total_ms": 1395,
+          "frame_cap": 12,
+          "pcm_stats": {
+            "nonzero": 23022,
+            "samples": 23040,
+            "peak": 9474,
+            "rms": 0.06027782676337998
+          },
+          "codes_sha256": "29db7a180fc354d25ef61fb61a06fa44e612c75fe553ab104c6581d8a4f06def",
+          "wav_sha256": "6adb6e8b50298ce5665692563b458dbb163bc0bd79801a3fdbc0f5bbca415bac"
+        },
+        {
+          "duration_s": 0.96,
+          "t_generate_ms": 931,
+          "t_decode_ms": 510,
+          "t_total_ms": 1442,
+          "frame_cap": 12,
+          "pcm_stats": {
+            "nonzero": 23022,
+            "samples": 23040,
+            "peak": 9474,
+            "rms": 0.06027782676337998
+          },
+          "codes_sha256": "29db7a180fc354d25ef61fb61a06fa44e612c75fe553ab104c6581d8a4f06def",
+          "wav_sha256": "6adb6e8b50298ce5665692563b458dbb163bc0bd79801a3fdbc0f5bbca415bac"
+        }
+      ]
+    },
+    "checked-gpu-b": {
+      "model": "0.6B Q8_0",
+      "speaker_conditioned": true,
+      "language": "english",
+      "seed": 20261026,
+      "temperature": 0.9,
+      "sub_temperature": 0.9,
+      "threads": 4,
+      "affinity": null,
+      "small2": false,
+      "hybrid": false,
+      "temperature_limits": {
+        "gpu_c": 85,
+        "battery_c": 41
+      },
+      "startup_ready_s": 11.235856193998188,
+      "exit_code": 0,
+      "failure": null,
+      "all_foreground": true,
+      "max_gpu_c": 82.6,
+      "max_cpu_c": 79.5,
+      "max_battery_c": 33.6,
+      "requests": [
+        {
+          "duration_s": 0.64,
+          "t_generate_ms": 1388,
+          "t_decode_ms": 352,
+          "t_total_ms": 1740,
+          "frame_cap": 8,
+          "pcm_stats": {
+            "nonzero": 15351,
+            "samples": 15360,
+            "peak": 9474,
+            "rms": 0.07225935992912505
+          },
+          "codes_sha256": "5adb80ffbe0458d8d56f2ed21d6dd6a2b34088c0390eac85ab488a244f12394c",
+          "wav_sha256": "fbd874534104fa15b8deca929e22aacc9fca729d22f97fb9ec316cf9ffe0ad45"
+        },
+        {
+          "duration_s": 0.96,
+          "t_generate_ms": 845,
+          "t_decode_ms": 526,
+          "t_total_ms": 1383,
+          "frame_cap": 12,
+          "pcm_stats": {
+            "nonzero": 23022,
+            "samples": 23040,
+            "peak": 9474,
+            "rms": 0.06027782676337998
+          },
+          "codes_sha256": "29db7a180fc354d25ef61fb61a06fa44e612c75fe553ab104c6581d8a4f06def",
+          "wav_sha256": "6adb6e8b50298ce5665692563b458dbb163bc0bd79801a3fdbc0f5bbca415bac"
+        },
+        {
+          "duration_s": 0.96,
+          "t_generate_ms": 950,
+          "t_decode_ms": 502,
+          "t_total_ms": 1465,
+          "frame_cap": 12,
+          "pcm_stats": {
+            "nonzero": 23022,
+            "samples": 23040,
+            "peak": 9474,
+            "rms": 0.06027782676337998
+          },
+          "codes_sha256": "29db7a180fc354d25ef61fb61a06fa44e612c75fe553ab104c6581d8a4f06def",
+          "wav_sha256": "6adb6e8b50298ce5665692563b458dbb163bc0bd79801a3fdbc0f5bbca415bac"
+        }
+      ]
+    },
+    "checked-fast-prime2": {
+      "model": "0.6B Q8_0",
+      "speaker_conditioned": true,
+      "language": "english",
+      "seed": 20261026,
+      "temperature": 0.9,
+      "sub_temperature": 0.9,
+      "threads": 2,
+      "affinity": "6,7",
+      "small2": false,
+      "hybrid": true,
+      "temperature_limits": {
+        "gpu_c": 85,
+        "battery_c": 41
+      },
+      "startup_ready_s": 1.6126168739938294,
+      "exit_code": 0,
+      "failure": null,
+      "all_foreground": true,
+      "max_gpu_c": 81.9,
+      "max_cpu_c": 89.2,
+      "max_battery_c": 33.1,
+      "requests": [
+        {
+          "duration_s": 0.64,
+          "t_generate_ms": 404,
+          "t_decode_ms": 376,
+          "t_total_ms": 780,
+          "frame_cap": 8,
+          "pcm_stats": {
+            "nonzero": 15357,
+            "samples": 15360,
+            "peak": 8184,
+            "rms": 0.06106577982560502
+          },
+          "codes_sha256": "8ce427d8108ce1f8d020964dc3908ae377f80f277588bb051264b8ce8e8e2823",
+          "wav_sha256": "2b5e09163ba4a26b2591ff184ec21406b1e89a758e9d4784cb534a2eff9b2010"
+        },
+        {
+          "duration_s": 0.96,
+          "t_generate_ms": 540,
+          "t_decode_ms": 542,
+          "t_total_ms": 1082,
+          "frame_cap": 12,
+          "pcm_stats": {
+            "nonzero": 23031,
+            "samples": 23040,
+            "peak": 8184,
+            "rms": 0.057150370557356237
+          },
+          "codes_sha256": "ec697347dfd51eb70bc2c281d0f4fa86dba9a67601a1eb138eea64753d6216d3",
+          "wav_sha256": "1c5cc69c099959e9a9b793330a5fcf8530a86b42ca40c6685a2a0c508f31ad32"
+        },
+        {
+          "duration_s": 0.96,
+          "t_generate_ms": 592,
+          "t_decode_ms": 509,
+          "t_total_ms": 1103,
+          "frame_cap": 12,
+          "pcm_stats": {
+            "nonzero": 23031,
+            "samples": 23040,
+            "peak": 8184,
+            "rms": 0.057150370557356237
+          },
+          "codes_sha256": "ec697347dfd51eb70bc2c281d0f4fa86dba9a67601a1eb138eea64753d6216d3",
+          "wav_sha256": "1c5cc69c099959e9a9b793330a5fcf8530a86b42ca40c6685a2a0c508f31ad32"
+        }
+      ]
+    },
+    "checked-gpu-small2": {
+      "model": "0.6B Q8_0",
+      "speaker_conditioned": true,
+      "language": "english",
+      "seed": 20261026,
+      "temperature": 0.9,
+      "sub_temperature": 0.9,
+      "threads": 4,
+      "affinity": null,
+      "small2": true,
+      "hybrid": false,
+      "temperature_limits": {
+        "gpu_c": 85,
+        "battery_c": 41
+      },
+      "startup_ready_s": 3.0168148949960596,
+      "exit_code": 0,
+      "failure": null,
+      "all_foreground": true,
+      "max_gpu_c": 83.4,
+      "max_cpu_c": 67.5,
+      "max_battery_c": 33.8,
+      "requests": [
+        {
+          "duration_s": 0.64,
+          "t_generate_ms": 582,
+          "t_decode_ms": 369,
+          "t_total_ms": 952,
+          "frame_cap": 8,
+          "pcm_stats": {
+            "nonzero": 15351,
+            "samples": 15360,
+            "peak": 9474,
+            "rms": 0.07225935992912505
+          },
+          "codes_sha256": "5adb80ffbe0458d8d56f2ed21d6dd6a2b34088c0390eac85ab488a244f12394c",
+          "wav_sha256": "fbd874534104fa15b8deca929e22aacc9fca729d22f97fb9ec316cf9ffe0ad45"
+        },
+        {
+          "duration_s": 0.96,
+          "t_generate_ms": 808,
+          "t_decode_ms": 534,
+          "t_total_ms": 1353,
+          "frame_cap": 12,
+          "pcm_stats": {
+            "nonzero": 23022,
+            "samples": 23040,
+            "peak": 9474,
+            "rms": 0.06027782676337998
+          },
+          "codes_sha256": "29db7a180fc354d25ef61fb61a06fa44e612c75fe553ab104c6581d8a4f06def",
+          "wav_sha256": "6adb6e8b50298ce5665692563b458dbb163bc0bd79801a3fdbc0f5bbca415bac"
+        },
+        {
+          "duration_s": 0.96,
+          "t_generate_ms": 849,
+          "t_decode_ms": 503,
+          "t_total_ms": 1364,
+          "frame_cap": 12,
+          "pcm_stats": {
+            "nonzero": 23022,
+            "samples": 23040,
+            "peak": 9474,
+            "rms": 0.06027782676337998
+          },
+          "codes_sha256": "29db7a180fc354d25ef61fb61a06fa44e612c75fe553ab104c6581d8a4f06def",
+          "wav_sha256": "6adb6e8b50298ce5665692563b458dbb163bc0bd79801a3fdbc0f5bbca415bac"
+        }
+      ]
+    },
+    "unlimited-gpu-a": {
+      "model": "0.6B Q8_0",
+      "speaker_conditioned": true,
+      "language": "english",
+      "seed": 20261026,
+      "temperature": 0.9,
+      "sub_temperature": 0.9,
+      "threads": 4,
+      "affinity": null,
+      "small2": true,
+      "hybrid": false,
+      "temperature_limits": null,
+      "startup_ready_s": 3.0145878640032606,
+      "exit_code": 0,
+      "failure": null,
+      "all_foreground": true,
+      "max_gpu_c": 90.3,
+      "max_cpu_c": 88.8,
+      "max_battery_c": 29.6,
+      "requests": [
+        {
+          "duration_s": 1.28,
+          "t_generate_ms": 1085,
+          "t_decode_ms": 707,
+          "t_total_ms": 1797,
+          "frame_cap": 16,
+          "pcm_stats": {
+            "nonzero": 27859,
+            "samples": 30720,
+            "peak": 6729,
+            "rms": 0.03560169809028164
+          },
+          "codes_sha256": "981deade65e4c64b457af54f366b2269bc1944b9bc38ca9e07711229abf83714",
+          "wav_sha256": "c34986283d7263cee26936c6470b334b4cafe4be9db27c7afa8e77ac1d61091a"
+        },
+        {
+          "duration_s": 5.12,
+          "t_generate_ms": 4422,
+          "t_decode_ms": 2907,
+          "t_total_ms": 7330,
+          "frame_cap": 64,
+          "pcm_stats": {
+            "nonzero": 117995,
+            "samples": 122880,
+            "peak": 9698,
+            "rms": 0.032630118578703814
+          },
+          "codes_sha256": "78454889fff99a8291b80190a3fda2c40a7ab9ea4362c285c9b6498811d69753",
+          "wav_sha256": "fa847e02b37cd539165633af9d5437b91f6a5c7c342aec4199cfe677d37b239e"
+        },
+        {
+          "duration_s": 5.12,
+          "t_generate_ms": 4369,
+          "t_decode_ms": 2882,
+          "t_total_ms": 7255,
+          "frame_cap": 64,
+          "pcm_stats": {
+            "nonzero": 117995,
+            "samples": 122880,
+            "peak": 9698,
+            "rms": 0.032630118578703814
+          },
+          "codes_sha256": "78454889fff99a8291b80190a3fda2c40a7ab9ea4362c285c9b6498811d69753",
+          "wav_sha256": "fa847e02b37cd539165633af9d5437b91f6a5c7c342aec4199cfe677d37b239e"
+        }
+      ]
+    },
+    "unlimited-fast-prime2": {
+      "model": "0.6B Q8_0",
+      "speaker_conditioned": true,
+      "language": "english",
+      "seed": 20261026,
+      "temperature": 0.9,
+      "sub_temperature": 0.9,
+      "threads": 2,
+      "affinity": "6,7",
+      "small2": false,
+      "hybrid": true,
+      "temperature_limits": null,
+      "startup_ready_s": 1.2140471869934117,
+      "exit_code": 0,
+      "failure": null,
+      "all_foreground": true,
+      "max_gpu_c": 101.9,
+      "max_cpu_c": 105.4,
+      "max_battery_c": 30.4,
+      "requests": [
+        {
+          "duration_s": 1.28,
+          "t_generate_ms": 660,
+          "t_decode_ms": 694,
+          "t_total_ms": 1354,
+          "frame_cap": 16,
+          "pcm_stats": {
+            "nonzero": 29207,
+            "samples": 30720,
+            "peak": 7781,
+            "rms": 0.031946656420811154
+          },
+          "codes_sha256": "9b29fcbd7fc973b2159e88cfd133a9c57658d3af6d8187d14e020742e32bd442",
+          "wav_sha256": "37e4476756d43fd33aaf835d4c74a6cc5fb6f70316a66afb2668035e9c2ae87b"
+        },
+        {
+          "duration_s": 5.12,
+          "t_generate_ms": 2543,
+          "t_decode_ms": 2863,
+          "t_total_ms": 5407,
+          "frame_cap": 64,
+          "pcm_stats": {
+            "nonzero": 119319,
+            "samples": 122880,
+            "peak": 7894,
+            "rms": 0.030775339910947514
+          },
+          "codes_sha256": "ff3add85ab2b32a3b3b0d42f0853494da2196d6bf789a8fc81267318afd23420",
+          "wav_sha256": "aa0d55d27cbf90e8959d573618136295abba192b74445508dc4d41a3e4e5f92b"
+        },
+        {
+          "duration_s": 5.12,
+          "t_generate_ms": 2726,
+          "t_decode_ms": 2782,
+          "t_total_ms": 5509,
+          "frame_cap": 64,
+          "pcm_stats": {
+            "nonzero": 119319,
+            "samples": 122880,
+            "peak": 7894,
+            "rms": 0.030775339910947514
+          },
+          "codes_sha256": "ff3add85ab2b32a3b3b0d42f0853494da2196d6bf789a8fc81267318afd23420",
+          "wav_sha256": "aa0d55d27cbf90e8959d573618136295abba192b74445508dc4d41a3e4e5f92b"
+        }
+      ]
+    },
+    "unlimited-gpu-b": {
+      "model": "0.6B Q8_0",
+      "speaker_conditioned": true,
+      "language": "english",
+      "seed": 20261026,
+      "temperature": 0.9,
+      "sub_temperature": 0.9,
+      "threads": 4,
+      "affinity": null,
+      "small2": true,
+      "hybrid": false,
+      "temperature_limits": null,
+      "startup_ready_s": 2.514215155002603,
+      "exit_code": 0,
+      "failure": null,
+      "all_foreground": true,
+      "max_gpu_c": 103.8,
+      "max_cpu_c": 102.7,
+      "max_battery_c": 30.4,
+      "requests": [
+        {
+          "duration_s": 1.28,
+          "t_generate_ms": 1125,
+          "t_decode_ms": 695,
+          "t_total_ms": 1823,
+          "frame_cap": 16,
+          "pcm_stats": {
+            "nonzero": 27859,
+            "samples": 30720,
+            "peak": 6729,
+            "rms": 0.03560169809028164
+          },
+          "codes_sha256": "981deade65e4c64b457af54f366b2269bc1944b9bc38ca9e07711229abf83714",
+          "wav_sha256": "c34986283d7263cee26936c6470b334b4cafe4be9db27c7afa8e77ac1d61091a"
+        },
+        {
+          "duration_s": 5.12,
+          "t_generate_ms": 4508,
+          "t_decode_ms": 2834,
+          "t_total_ms": 7345,
+          "frame_cap": 64,
+          "pcm_stats": {
+            "nonzero": 117995,
+            "samples": 122880,
+            "peak": 9698,
+            "rms": 0.032630118578703814
+          },
+          "codes_sha256": "78454889fff99a8291b80190a3fda2c40a7ab9ea4362c285c9b6498811d69753",
+          "wav_sha256": "fa847e02b37cd539165633af9d5437b91f6a5c7c342aec4199cfe677d37b239e"
+        },
+        {
+          "duration_s": 5.12,
+          "t_generate_ms": 4376,
+          "t_decode_ms": 2818,
+          "t_total_ms": 7198,
+          "frame_cap": 64,
+          "pcm_stats": {
+            "nonzero": 117995,
+            "samples": 122880,
+            "peak": 9698,
+            "rms": 0.032630118578703814
+          },
+          "codes_sha256": "78454889fff99a8291b80190a3fda2c40a7ab9ea4362c285c9b6498811d69753",
+          "wav_sha256": "fa847e02b37cd539165633af9d5437b91f6a5c7c342aec4199cfe677d37b239e"
+        }
+      ]
+    }
+  }
+}

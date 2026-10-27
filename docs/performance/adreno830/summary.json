@@ -1,0 +1,103 @@
+{
+  "protocol": "0.6B Q8; conditioned speaker; English; seed20261026 reset per request; temperature/sub-temperature0.9; 12 frames; first 8-frame warmup excluded; max GPU85C and battery41C; admission GPU<55C/battery<40C",
+  "groups": {
+    "GPU control": {
+      "n": 4,
+      "trials": [
+        "checked-gpu-a",
+        "checked-gpu-b"
+      ],
+      "request_total_ms": [
+        1395,
+        1442,
+        1383,
+        1465
+      ],
+      "median_generate_ms": 897.0,
+      "median_decode_ms": 518.0,
+      "median_total_ms": 1418.5,
+      "startup_ready_s": [
+        9.133584736002376,
+        11.235856193998188
+      ],
+      "max_gpu_c": 82.6,
+      "max_battery_c": 33.6,
+      "codes_sha256": [
+        "29db7a180fc354d25ef61fb61a06fa44e612c75fe553ab104c6581d8a4f06def"
+      ],
+      "wav_sha256": [
+        "6adb6e8b50298ce5665692563b458dbb163bc0bd79801a3fdbc0f5bbca415bac"
+      ]
+    },
+    "CPU prime pair + GPU": {
+      "n": 2,
+      "trials": [
+        "checked-fast-prime2"
+      ],
+      "request_total_ms": [
+        1082,
+        1103
+      ],
+      "median_generate_ms": 566.0,
+      "median_decode_ms": 525.5,
+      "median_total_ms": 1092.5,
+      "startup_ready_s": [
+        1.6126168739938294
+      ],
+      "max_gpu_c": 81.9,
+      "max_battery_c": 33.1,
+      "codes_sha256": [
+        "ec697347dfd51eb70bc2c281d0f4fa86dba9a67601a1eb138eea64753d6216d3"
+      ],
+      "wav_sha256": [
+        "1c5cc69c099959e9a9b793330a5fcf8530a86b42ca40c6685a2a0c508f31ad32"
+      ]
+    },
+    "GPU two-token kernel": {
+      "n": 2,
+      "trials": [
+        "checked-gpu-small2"
+      ],
+      "request_total_ms": [
+        1353,
+        1364
+      ],
+      "median_generate_ms": 828.5,
+      "median_decode_ms": 518.5,
+      "median_total_ms": 1358.5,
+      "startup_ready_s": [
+        3.0168148949960596
+      ],
+      "max_gpu_c": 83.4,
+      "max_battery_c": 33.8,
+      "codes_sha256": [
+        "29db7a180fc354d25ef61fb61a06fa44e612c75fe553ab104c6581d8a4f06def"
+      ],
+      "wav_sha256": [
+        "6adb6e8b50298ce5665692563b458dbb163bc0bd79801a3fdbc0f5bbca415bac"
+      ]
+    }
+  },
+  "hybrid_time_reduction_percent": 22.982023264011275,
+  "hybrid_speedup": 1.2983981693363844,
+  "gpu_small2_time_reduction_percent": 4.2298202326401135,
+  "gpu_small2_exact_codes_and_pcm": true,
+  "hybrid_exact_codes": false,
+  "mask_test": {
+    "baseline": {
+      "cases": 15,
+      "failed_cases": 13,
+      "guard_corruption_cases": 11
+    },
+    "fixed": {
+      "cases": 15,
+      "failed_cases": 0,
+      "guard_corruption_cases": 0
+    }
+  },
+  "decoder_reference": {
+    "samples": 15360,
+    "max_abs": 0.0011644214391708374,
+    "rmse": 0.00010253551945342813
+  }
+}

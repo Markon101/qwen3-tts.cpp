@@ -1,0 +1,56 @@
+{
+  "protocol": "Measurement only: no temperature limits, cooldown waits or foreground aborts. Fixed 64 frames / 5.12 s; same long text, speaker, English and per-request seed20261026; sampling temperatures0.9; 16-frame first request excluded.",
+  "groups": {
+    "Optimized GPU": {
+      "n": 4,
+      "trials": [
+        "unlimited-gpu-a",
+        "unlimited-gpu-b"
+      ],
+      "median_generate_ms": 4399.0,
+      "median_decode_ms": 2858.0,
+      "median_total_ms": 7292.5,
+      "total_ms": [
+        7330,
+        7255,
+        7345,
+        7198
+      ],
+      "max_gpu_c": 103.8,
+      "max_cpu_c": 102.7,
+      "max_battery_c": 30.4,
+      "all_foreground": true,
+      "codes_sha256": [
+        "78454889fff99a8291b80190a3fda2c40a7ab9ea4362c285c9b6498811d69753"
+      ],
+      "wav_sha256": [
+        "fa847e02b37cd539165633af9d5437b91f6a5c7c342aec4199cfe677d37b239e"
+      ]
+    },
+    "CPU prime pair + GPU": {
+      "n": 2,
+      "trials": [
+        "unlimited-fast-prime2"
+      ],
+      "median_generate_ms": 2634.5,
+      "median_decode_ms": 2822.5,
+      "median_total_ms": 5458.0,
+      "total_ms": [
+        5407,
+        5509
+      ],
+      "max_gpu_c": 101.9,
+      "max_cpu_c": 105.4,
+      "max_battery_c": 30.4,
+      "all_foreground": true,
+      "codes_sha256": [
+        "ff3add85ab2b32a3b3b0d42f0853494da2196d6bf789a8fc81267318afd23420"
+      ],
+      "wav_sha256": [
+        "aa0d55d27cbf90e8959d573618136295abba192b74445508dc4d41a3e4e5f92b"
+      ]
+    }
+  },
+  "time_reduction_percent": 25.155982173465887,
+  "speedup": 1.3361121289849762
+}
