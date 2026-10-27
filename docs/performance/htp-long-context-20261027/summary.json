@@ -1,0 +1,67 @@
+{
+  "created_utc": "2026-10-27T20:50:04.959086+00:00",
+  "baseline_dsp_sha256": "de194a14bae0129f1e89c06b41d815decf93593c0cabca9bce6edc95d27def01",
+  "frozen_baseline_sha256": "de194a14bae0129f1e89c06b41d815decf93593c0cabca9bce6edc95d27def01",
+  "fixed_dsp_sha256": "29befffe763535e28e3f131723e7aa40c0428c50be629cf1e2dccfed3ef80990",
+  "ggml_parent": "37c5e3b2029ca3016dbccc815b9c20f11ff3dd8e",
+  "patch_sha256": "1dd05c55ddf1a4d81f4689a18f407f1f7cd15a506bad499d620bd77fe99190c2",
+  "short_attention_output_parity": [
+    {
+      "layout": "strided",
+      "KV": 16,
+      "bit_identical": true
+    },
+    {
+      "layout": "strided",
+      "KV": 64,
+      "bit_identical": true
+    },
+    {
+      "layout": "strided",
+      "KV": 127,
+      "bit_identical": true
+    },
+    {
+      "layout": "strided",
+      "KV": 128,
+      "bit_identical": true
+    },
+    {
+      "layout": "strided",
+      "KV": 191,
+      "bit_identical": true
+    },
+    {
+      "layout": "contiguous",
+      "KV": 16,
+      "bit_identical": true
+    },
+    {
+      "layout": "contiguous",
+      "KV": 64,
+      "bit_identical": true
+    },
+    {
+      "layout": "contiguous",
+      "KV": 127,
+      "bit_identical": true
+    },
+    {
+      "layout": "contiguous",
+      "KV": 128,
+      "bit_identical": true
+    },
+    {
+      "layout": "contiguous",
+      "KV": 191,
+      "bit_identical": true
+    }
+  ],
+  "no_icl_wav_bit_identical": true,
+  "human_listening_status": "corrected ICL sample pending",
+  "thermal_policy": "measurement_only",
+  "temperature_limits": null,
+  "speed_claim": null,
+  "fixed_ggml_commit": "148852d7a85b05f2645bd8c559294d529e66f8af",
+  "final_patch_source_sha256": "56cf57506fd8f30218590f96990a25324dcbe9e7ad0228212d0854e2194e451b"
+}

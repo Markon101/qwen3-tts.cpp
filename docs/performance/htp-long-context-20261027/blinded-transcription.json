@@ -1,0 +1,50 @@
+[
+  {
+    "label": "cpu-generated",
+    "model": "google/gemini-3.8-flash",
+    "transcript": "This is a test of the reference voice.",
+    "audio_sha256": "6f66de4cccd0d6fa4c4e861565ef05a84e3001e85eed55fb89082c7dc6068886",
+    "response_sha256": "d218606328b6231b89f8b315990854d1b77308a3c23eb7079ad289bb03e9a4c0",
+    "human_verified": false
+  },
+  {
+    "label": "npu-generated",
+    "model": "google/gemini-3.8-flash",
+    "transcript": "[unintelligible]",
+    "audio_sha256": "3f401ffb994e7aa445bb59d21582103fd25f7e87d57a2e66e9367c11249c5d92",
+    "response_sha256": "9bd28c38d0b813f00acad35c2f029522ac0a295db6e15210c90c4af29a160da7",
+    "human_verified": false
+  },
+  {
+    "label": "cpu-prefixed-trimmed",
+    "model": "google/gemini-3.8-flash",
+    "transcript": "This is a test of the reference voice",
+    "audio_sha256": "2a9ae3f032a5f12567583c8e4f029e5156b15bd5f8095dede3824ca7d82d089f",
+    "response_sha256": "446807e337ef1e5d45e2b978baa971260f3ae3debe73993ad09b217fb2597783",
+    "human_verified": false
+  },
+  {
+    "label": "npu-prefixed-trimmed",
+    "model": "google/gemini-3.8-flash",
+    "transcript": "[unintelligible]",
+    "audio_sha256": "b6cbb2ea01b3d9ef45404c2809deca315076c25250948e144d75c12e842d366f",
+    "response_sha256": "614e3d027fee3935765478e4ef123bd8b53c98ffd14ce213b790ad98af10611c",
+    "human_verified": false
+  },
+  {
+    "label": "k-drain-icl-generated",
+    "model": "google/gemini-3.8-flash",
+    "transcript": "This is a test of the reference voice",
+    "audio_sha256": "d92d110233851d3944cd5ec557904f136db5133fdf9abc4140e8234186e87300",
+    "response_sha256": "e9eada60eb57d0f1f34e6facf4c2885cc9832214176cdce3322c6cd3ca221c31",
+    "human_verified": false
+  },
+  {
+    "label": "fixed-short-reference-end-to-end",
+    "model": "google/gemini-3.8-flash",
+    "transcript": "This is a short test of the reference voice. The audio should be clear and easy to understand.",
+    "audio_sha256": "f0220a5dab0a0e2994bd268ebdb44bc5a4614bb1b35317ae189263ec14bcf5b7",
+    "response_sha256": "2332c86669dc37ef49bc653a0b845a7700229e0ee1dd945e639bda0e933e5f7d",
+    "human_verified": false
+  }
+]
