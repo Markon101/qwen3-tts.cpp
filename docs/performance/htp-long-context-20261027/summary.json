@@ -58,7 +58,7 @@
     }
   ],
   "no_icl_wav_bit_identical": true,
-  "human_listening_status": "corrected ICL sample pending",
+  "human_listening_status": "User confirmed corrected smalldon end-to-end ICL sample contains clear speech",
   "thermal_policy": "measurement_only",
   "temperature_limits": null,
   "speed_claim": null,

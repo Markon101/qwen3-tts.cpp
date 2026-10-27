@@ -45,6 +45,7 @@
     "transcript": "This is a short test of the reference voice. The audio should be clear and easy to understand.",
     "audio_sha256": "f0220a5dab0a0e2994bd268ebdb44bc5a4614bb1b35317ae189263ec14bcf5b7",
     "response_sha256": "2332c86669dc37ef49bc653a0b845a7700229e0ee1dd945e639bda0e933e5f7d",
-    "human_verified": false
+    "human_verified": false,
+    "human_listening_confirmed_clear": true
   }
 ]

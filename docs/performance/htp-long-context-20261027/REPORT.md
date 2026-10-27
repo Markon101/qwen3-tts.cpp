@@ -31,7 +31,7 @@ This matches completion patterns already present in the backend's diagonal-tile 
 - Existing 70 support checks and 12 matrix-oracle cases pass.
 - The established reference-only output remains **byte-identical**.
 - The corrected ICL continuation transcribes as the requested sentence; the failing NPU continuation was unintelligible under the same blinded protocol.
-- The previously failing `smalldon.wav` end-to-end ICL trial now transcribes as the full requested test sentence. Its corrected WAV is exported locally for user listening.
+- The previously failing `smalldon.wav` end-to-end ICL trial now transcribes as the full requested test sentence. Its corrected WAV was exported locally, and the user confirmed clear speech.
 
 [controls.json](controls.json), [summary.json](summary.json) and [blinded-transcription.json](blinded-transcription.json) preserve reviewed numbers, exact comparisons and artifact hashes. Input recordings, reference transcripts, model tensors and generated audio remain outside Git. The full sampled ICL trial is an intelligibility check, not a claim of bit-identical stochastic CPU/NPU generation.
 
@@ -41,4 +41,4 @@ No new speedup is claimed. The kernel's routing, HMX/pipeline use, polling and q
 
 `tools/npu/build-host-dsp.sh` builds `npu-test-flash-attention` along with the existing controls. Run it through `tools/npu/native-env.sh`; `--strided-only` and `--contiguous-only` select layouts. `QWEN_NPU_RESULT_TAG` distinguishes retained raw artifacts across builds. Numerical gates are cosine >0.999, NRMSE <0.03, maximum error <0.02 and finite output; they were fixed before evaluating the patch.
 
-The real-input mode of `npu-test-clone-prefill` also checks eight teacher-forced decode steps after the long prefill. Generated-code feedback is excluded from these comparisons so sampling cannot conceal a decode-kernel error. Corrected voice quality still awaits user listening.
+The real-input mode of `npu-test-clone-prefill` also checks eight teacher-forced decode steps after the long prefill. Generated-code feedback is excluded from these comparisons so sampling cannot conceal a decode-kernel error. The user subsequently confirmed that the corrected end-to-end ICL sample contains clear speech. This listening result establishes intelligibility for that trial; broader voice-similarity evaluation remains separate.
