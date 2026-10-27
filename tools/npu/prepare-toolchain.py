@@ -83,10 +83,11 @@ def prepare(root, archive):
         raise RuntimeError('SDK extraction stamp differs from the pin')
     runtime_stamp = tools_root / 'x86-runtime.json'
     expected = {p['name']: p['sha256'] for p in meta['x86_runtime']}
+    # Re-extract verified packages on every preparation pass: a valid stamp
+    # cannot establish that a partially cleaned runtime still contains its files.
     for package in meta['x86_runtime']:
         deb = fetch(package, cache / package['filename'])
-        if not runtime_stamp.exists() or json.loads(runtime_stamp.read_text()) != expected:
-            subprocess.run(['dpkg-deb', '--extract', str(deb), str(x86)], check=True)
+        subprocess.run(['dpkg-deb', '--extract', str(deb), str(x86)], check=True)
     runtime_stamp.write_text(json.dumps(expected, indent=2) + '\n')
     # Debian's merged-/usr packages do not include these filesystem aliases.
     # They are required by QEMU's ELF interpreter/library lookup inside this root.

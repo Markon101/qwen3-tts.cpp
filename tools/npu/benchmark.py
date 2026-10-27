@@ -19,6 +19,7 @@ models=args.models_dir.resolve();embedding=args.embedding.resolve()
 if not embedding.is_file():parser.error('embedding file missing')
 sys.path.insert(0,str(R/'scripts/android'))
 from adreno_telemetry import sample
+from code_provenance import associate_code_dumps
 B=R/'.cache/npu/build/src';P=R/'.cache/tts-runs';D=R/'.cache/npu'/args.tag;D.mkdir(parents=True,exist_ok=False);P.mkdir(parents=True,exist_ok=True)
 env=os.environ.copy()
 for k in list(env):
@@ -66,15 +67,16 @@ for name,backend,nhvx in variants:
  if code:raise RuntimeError('failed '+tag)
  responses=[json.loads(line) for line in (P/(tag+'.stdout.log')).read_text().splitlines() if line.startswith('{')]
  assert len(responses)==args.requests+1
- success_index=0
+ code_mapping,ambiguous=associate_code_dumps(responses,[p.name for p in codes.glob('codes-*.i32')])
+ if ambiguous:failed_requests=True
  for i,r in enumerate(responses):
+  r.update(codes_dump_file=code_mapping[i],codes_mapping_ambiguous=ambiguous)
   if not r.get('success'):
    failed_requests=True;r.update(variant=name,request=i,fixed_frame_match=False,raw_logits_guard=True)
    rows.append(r);continue
-  success_index+=1
   with wave.open(r['output'],'rb') as f:a=array.array('h',f.readframes(f.getnframes()))
   assert any(a)
-  r.update(variant=name,request=i,codes_dump_index=success_index,raw_logits_guard=True,frames_actual=round(r['duration_s']/.08),fixed_frame_match=abs(r['duration_s']-requests[i]['max_tokens']*.08)<.001,nonzero=sum(v!=0 for v in a),peak=max(abs(v) for v in a),rms=math.sqrt(sum((v/32768)**2 for v in a)/len(a)),wav_sha256=hashlib.sha256(pathlib.Path(r['output']).read_bytes()).hexdigest())
+  r.update(variant=name,request=i,raw_logits_guard=True,frames_actual=round(r['duration_s']/.08),fixed_frame_match=abs(r['duration_s']-requests[i]['max_tokens']*.08)<.001,nonzero=sum(v!=0 for v in a),peak=max(abs(v) for v in a),rms=math.sqrt(sum((v/32768)**2 for v in a)/len(a)),wav_sha256=hashlib.sha256(pathlib.Path(r['output']).read_bytes()).hexdigest())
   rows.append(r)
  (D/'results.json').write_text(json.dumps(rows,indent=2)+'\n')
  print(name,[(r['frames_actual'],r['t_generate_ms'],r['t_decode_ms'],r['t_total_ms']) if r.get('success') else ('FAILED',r.get('error')) for r in responses],flush=True)
