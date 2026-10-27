@@ -1,0 +1,45 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+REPO_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+MODEL_SIZE=${1:-}
+case "$MODEL_SIZE" in
+  0.6b|1.7b) shift ;;
+  *) printf '%s\n' 'Usage: scripts/android/run-tts.sh 0.6b|1.7b [TTS options]' >&2; exit 2 ;;
+esac
+MODELS_DIR=${QWEN_MODELS_DIR:-"$REPO_DIR/models"}
+CACHE_DIR=${GGML_OPENCL_BINARY_CACHE_DIR:-"$REPO_DIR/.cache/adreno830-opencl"}
+if [ ! -x "$REPO_DIR/build-opencl/qwen3-tts-cli" ]; then
+  printf '%s\n' 'Build first: sh scripts/android/build-adreno.sh' >&2
+  exit 2
+fi
+mkdir -p "$CACHE_DIR"
+export OCL_ICD_VENDORS=/vendor/lib64/libOpenCL.so
+export LD_LIBRARY_PATH="$REPO_DIR/ggml/build-opencl/src:$REPO_DIR/ggml/build-opencl/src/ggml-opencl:/system/lib64:/vendor/lib64:${LD_LIBRARY_PATH:-}"
+export GGML_OPENCL_BINARY_CACHE_DIR="$CACHE_DIR"
+export QWEN3_TTS_VALIDATE_AUDIO=1
+unset GGML_OPENCL_QCOM_RECORD GGML_PROFILE_OPS
+unset QWEN3_TTS_FORCE_CPU QWEN3_TTS_TRANSFORMER_BACKEND QWEN3_TTS_DECODER_BACKEND
+MODE=${QWEN_TTS_MODE:-}
+if [ -z "$MODE" ]; then
+  if [ "$MODEL_SIZE" = 0.6b ]; then MODE=hybrid; else MODE=gpu; fi
+fi
+case "$MODE" in
+  hybrid)
+    export QWEN3_TTS_TRANSFORMER_BACKEND=cpu
+    unset GGML_OPENCL_Q8_SMALL2
+    exec python "$REPO_DIR/scripts/android/profile_runner.py" taskset -c 6,7 \
+      "$REPO_DIR/build-opencl/qwen3-tts-cli" \
+      -m "$MODELS_DIR/qwen3-tts-$MODEL_SIZE-q8_0.gguf" \
+      --tokenizer "$MODELS_DIR/qwen3-tts-tokenizer-f16-f32.gguf" \
+      --threads 2 "$@"
+    ;;
+  gpu)
+    if [ "$MODEL_SIZE" = 0.6b ]; then export GGML_OPENCL_Q8_SMALL2=1; else unset GGML_OPENCL_Q8_SMALL2; fi
+    exec python "$REPO_DIR/scripts/android/profile_runner.py" \
+      "$REPO_DIR/build-opencl/qwen3-tts-cli" \
+      -m "$MODELS_DIR/qwen3-tts-$MODEL_SIZE-q8_0.gguf" \
+      --tokenizer "$MODELS_DIR/qwen3-tts-tokenizer-f16-f32.gguf" \
+      --threads 4 "$@"
+    ;;
+  *) printf '%s\n' 'QWEN_TTS_MODE must be hybrid or gpu' >&2; exit 2 ;;
+esac

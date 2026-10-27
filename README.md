@@ -1,3 +1,5 @@
+> **Adreno 830 / Termux branch:** build and run the measured phone profiles using [the Android guide](docs/ANDROID_ADRENO830.md). The matching GGML submodule includes a causal-mask correction, an optional kernel cache and a gated two-token kernel. Current logging is measurement-only, with no temperature cutoff. See [results and limitations](docs/performance/adreno830/REPORT.md).
+
 ![alt text](docs/assets/qwen-tts-logo.png)
 # qwen3-tts.cpp
 

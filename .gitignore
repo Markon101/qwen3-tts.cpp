@@ -76,3 +76,11 @@ build-old/
 build-cpu/
 build-opencl/
 models
+
+# Android profiling, model assets and local build caches
+.cache/
+build-opencl-regression/
+*.clbin
+*.gguf
+*.audio.f32
+*.codes.i32
