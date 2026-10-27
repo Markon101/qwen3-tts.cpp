@@ -10,6 +10,56 @@
 #include <cstdlib>
 #include <vector>
 
+static bool check_quantized_support(ggml_backend_t backend) {
+  // Tensor metadata only: no backend buffers, graph execution, or unsafe tail
+  // quantization. A support regression must stop the numeric cases below.
+  ggml_init_params params = {1024 * 1024, nullptr, true};
+  ggml_context *ctx = ggml_init(params);
+  if (!ctx) return false;
+  const ggml_type types[] = {GGML_TYPE_Q4_0, GGML_TYPE_Q4_1, GGML_TYPE_Q8_0,
+                            GGML_TYPE_IQ4_NL, GGML_TYPE_MXFP4};
+  const int lengths[] = {32, 64, 96, 288, 128, 256, 384};
+  const int m = 128, n = 2;
+  int cases = 0, expected_supported = 0, expected_declined = 0, failures = 0;
+  for (ggml_type type : types) {
+    for (int k : lengths) {
+      const bool expected = k % 128 == 0;
+      for (bool indirect : {false, true}) {
+        ggml_tensor *weights = indirect ? ggml_new_tensor_3d(ctx, type, k, m, 2) :
+                                          ggml_new_tensor_2d(ctx, type, k, m);
+        ggml_tensor *input = indirect ? ggml_new_tensor_3d(ctx, GGML_TYPE_F32, k, 1, n) :
+                                        ggml_new_tensor_2d(ctx, GGML_TYPE_F32, k, n);
+        ggml_tensor *output;
+        if (indirect) {
+          ggml_tensor *ids = ggml_new_tensor_2d(ctx, GGML_TYPE_I32, 1, n);
+          output = ggml_mul_mat_id(ctx, weights, input, ids);
+        } else {
+          output = ggml_mul_mat(ctx, weights, input);
+        }
+        const bool supported = ggml_backend_dev_supports_op(
+            ggml_backend_get_device(backend), output);
+        const bool pass = supported == expected;
+        ++cases;
+        if (expected) ++expected_supported;
+        else ++expected_declined;
+        if (!pass) ++failures;
+        printf("RESULT {\"kind\":\"support\",\"type\":\"%s\",\"op\":\"%s\","
+               "\"K\":%d,\"M\":%d,\"N\":%d,\"expected\":%s,\"supported\":%s,\"pass\":%s}\n",
+               ggml_type_name(type), indirect ? "MUL_MAT_ID" : "MUL_MAT", k, m, n,
+               expected ? "true" : "false", supported ? "true" : "false",
+               pass ? "true" : "false");
+      }
+    }
+  }
+  printf("SUPPORT_SUMMARY {\"cases\":%d,\"expected_supported\":%d,"
+         "\"expected_declined\":%d,\"failures\":%d,\"pass\":%s}\n",
+         cases, expected_supported, expected_declined, failures,
+         failures == 0 ? "true" : "false");
+  fflush(stdout);
+  ggml_free(ctx);
+  return failures == 0;
+}
+
 static bool run_case(ggml_backend_t backend, int k, int m, int n, float activation_scale = 1.0f,
                      const char *weight_path = nullptr, const char *input_path = nullptr) {
   ggml_init_params params = {4 * 1024 * 1024, nullptr, true};
@@ -158,12 +208,19 @@ int main(int argc, char **argv) {
   printf("BACKEND %s\n", name);
   if (strncmp(name, "HTP", 3))
     return 3;
+  if (!check_quantized_support(backend)) {
+    fprintf(stderr, "HTP quantized shape support regression; skipping computation\n");
+    ggml_backend_free(backend);
+    return 4;
+  }
   bool passed;
   if (argc == 6) {
     int k = atoi(argv[1]), m = atoi(argv[2]), n = atoi(argv[3]);
     if (k < 32 || k > 16384 || k % 32 || m < 1 || m > 16384 || n < 1 || n > 128) return 2;
     passed = run_case(backend, k, m, n, 1, argv[4], argv[5]);
   } else passed = run_case(backend, 128, 128, 1) &&
+                run_case(backend, 256, 128, 2) &&
+                run_case(backend, 384, 128, 2) &&
                 run_case(backend, 512, 256, 1) &&
                 run_case(backend, 128, 128, 8) &&
                 run_case(backend, 1024, 1024, 1) &&
