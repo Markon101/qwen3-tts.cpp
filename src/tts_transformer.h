@@ -236,6 +236,8 @@ struct tts_transformer_state {
 // TTS Transformer class
 class TTSTransformer {
 public:
+    void set_seed(uint32_t seed) { rng_.seed(seed); }
+
     TTSTransformer();
     ~TTSTransformer();
     

@@ -1,3 +1,4 @@
+#include <atomic>
 #include "qwen3_tts.h"
 #include "gguf_loader.h"
 
@@ -707,6 +708,14 @@ bool Qwen3TTS::decode_codes(const std::vector<int32_t> & codes,
         }
     }
     result.t_decode_ms = get_time_ms() - t0;
+    if (getenv("QWEN3_TTS_VALIDATE_AUDIO")) {
+        for (float value : result.audio) {
+            if (!std::isfinite(value)) {
+                result.error_msg = "Vocoder produced non-finite float audio";
+                return false;
+            }
+        }
+    }
 
     if (low_mem_mode_) {
         audio_decoder_.unload_model();
@@ -895,6 +904,9 @@ std::vector<tts_result> Qwen3TTS::synthesize_batch(
 
     // Merge generation_config defaults
     tts_params params = raw_params;
+    if (const char * seed = getenv("QWEN3_TTS_SEED")) {
+        transformer_.set_seed(static_cast<uint32_t>(strtoul(seed, nullptr, 10)));
+    }
     if (gen_defaults_.loaded) {
         if (params.temperature        == tts_params{}.temperature)
             params.temperature        = gen_defaults_.temperature;
@@ -1395,6 +1407,9 @@ tts_result Qwen3TTS::synthesize_internal(const std::string & text,
     // We use the gen_defaults_.loaded flag: if JSON was loaded, use ALL its
     // values as the baseline (i.e. replace defaults, keep user non-defaults).
     tts_params params = raw_params;
+    if (const char * seed = getenv("QWEN3_TTS_SEED")) {
+        transformer_.set_seed(static_cast<uint32_t>(strtoul(seed, nullptr, 10)));
+    }
     if (gen_defaults_.loaded) {
         // Only override when the param still equals the struct default value,
         // meaning the caller didn't touch it.
@@ -1599,6 +1614,17 @@ tts_result Qwen3TTS::synthesize_internal(const std::string & text,
         return result;
     }
     result.t_generate_ms = get_time_ms() - t0;
+    if (const char * directory = getenv("QWEN3_TTS_CODES_DIR")) {
+        static std::atomic<unsigned> serial{0};
+        std::string path = std::string(directory) + "/codes-" + std::to_string(++serial) + ".i32";
+        FILE * file = fopen(path.c_str(), "wb");
+        if (!file || fwrite(speech_codes.data(), sizeof(int32_t), speech_codes.size(), file) != speech_codes.size()) {
+            if (file) fclose(file);
+            result.error_msg = "Failed to retain speech codes";
+            return result;
+        }
+        fclose(file);
+    }
     snap_mem("synth/after-generate");
 
     if (speech_codes.empty()) {

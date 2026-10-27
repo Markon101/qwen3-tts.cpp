@@ -909,6 +909,7 @@ bool AudioTokenizerDecoder::decode(const int32_t * codes, int32_t n_frames,
                     if (strcmp(name, cn) == 0) { match = true; break; }
                 }
             }
+            if (getenv("QWEN3_TTS_DEBUG_ALL_NODES")) match = true;
             if (!match) return true;
             bool is_cpu = *(bool *)user_data;
             size_t n = ggml_nelements(t);
