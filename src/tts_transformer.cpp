@@ -3594,7 +3594,8 @@ bool TTSTransformer::build_prefill_graph_icl(
     std::vector<float> base_trailing;
     if (!build_prefill_graph(text_tokens, n_tokens, speaker_embd, language_id,
                               full_base_prefill, base_trailing, tts_pad_embed,
-                              non_streaming_mode)) {
+                              (n_ref_text_tokens > 0 && n_ref_frames > 0)
+                                  ? false : non_streaming_mode)) {
         return false;
     }
 
