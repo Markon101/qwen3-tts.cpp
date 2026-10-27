@@ -1,6 +1,6 @@
 # Hexagon NPU feasibility and Termux examples
 
-A first prototype is a moderate integration once a working vendor session and toolchain are available; a validated TTS backend is a larger task. The existing checkout already contains `ggml/src/ggml-hexagon` and Q8 kernels. No NPU computation was executed in this investigation.
+The native v79 prototype is now implemented on the experimental `npu-v79-bringup` branch. Source-built DSP matrix arithmetic and fixed-input talker controls passed on this phone. Full TTS testing exposed a separate predictor activation overflow, showing why finite WAVs alone were insufficient. Read [the implementation and validation guide](NPU_V79.md) and [dated evidence](performance/npu-v79/REPORT.md) for the current result. The original feasibility observations below explain the chosen route.
 
 ## The strongest Termux example
 
@@ -17,13 +17,13 @@ Its [installation guide](https://github.com/Ishabdullah/OpenCL-S24-Ultra/blob/ma
 ## This phone's measured access state
 
 - `/vendor/lib64/libcdsprpc.so` and `libSnpeHtpV79Stub.so` are present.
-- `HEXAGON_SDK_ROOT`, `HEXAGON_TOOLS_ROOT`, and `QNN_SDK_ROOT` are unset. `GGML_HEXAGON` is OFF in the existing build.
+- At the initial feasibility audit, SDK environment variables were unset and `GGML_HEXAGON` was OFF in the OpenCL baseline. The experimental branch now uses a separate private SDK and combined backend build.
 - Opening `/dev/fastrpc-cdsp` and `/dev/fastrpc-cdsp-secure` directly failed with EACCES in both read-only and read/write modes. The local probe record showed EACCES for these modes.
 - A native probe loaded `/apex/com.android.neuralnetworks/lib64/libneuralnetworks.so` and successfully enumerated **one** device: `nnapi-reference`, type 2 (CPU). No accelerator was exposed to this process through that API. The local probe output is summarized here. NNAPI is [deprecated in Android 15](https://developer.android.com/ndk/guides/neuralnetworks); it is not assumed to be the preferred new integration route.
 
-These observations do not prove that the vendor FastRPC broker is unavailable. The `sphal` route used by the S24 project remains untested here. They also do not justify claiming root is required.
+These observations do not prove that the vendor FastRPC broker is unavailable. The later `sphal` probe and native v79 DSP calculations succeeded here. They also do not justify claiming root is required.
 
-## Recommended integration route
+## Integration route and original validation plan
 
 [Qualcomm's supported-device table](https://docs.qualcomm.com/nav/home/QNN_general_overview.html?product=924033590759186372) maps SM8750/Snapdragon 8 Elite to **Hexagon v79**. [Upstream GGML's developer guide](https://github.com/ggml-org/llama.cpp/blob/master/docs/backend/snapdragon/developer.md) describes separate host and DSP libraries, tiled weight layouts, shared DDR and DSP-local VTCM. The [build guide](https://github.com/ggml-org/llama.cpp/blob/master/docs/backend/snapdragon/README.md) documents the corresponding SDK/toolchain workflow.
 

@@ -1,0 +1,79 @@
+[
+  {
+    "run": "npu-overflow-fixed-generation-0.6b-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 1,
+    "codes": 1024
+  },
+  {
+    "run": "npu-overflow-fixed-generation-1.7b-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 0,
+    "codes": 1024
+  },
+  {
+    "run": "npu-17b-cpu-app-build-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 0,
+    "codes": 1024
+  },
+  {
+    "run": "npu-17b-cpu-app-build-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 0,
+    "codes": 1024
+  },
+  {
+    "run": "npu-17b-cpu-app-build-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 0,
+    "codes": 1024
+  },
+  {
+    "run": "npu-17b-cpu-app-f32kv-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 0,
+    "codes": 1024
+  },
+  {
+    "run": "npu-17b-cpu-app-f32kv-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 0,
+    "codes": 1024
+  },
+  {
+    "run": "npu-17b-cpu-app-f32kv-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 0,
+    "codes": 1024
+  },
+  {
+    "run": "npu-17b-cpu-app-f32kv-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 0,
+    "codes": 1024
+  },
+  {
+    "run": "npu-17b-cpu-app-f32kv-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 0,
+    "codes": 1024
+  },
+  {
+    "run": "npu-17b-cpu-app-f32kv-1",
+    "success": true,
+    "frames": 64,
+    "zero_codes": 0,
+    "codes": 1024
+  }
+]

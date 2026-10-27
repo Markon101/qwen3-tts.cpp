@@ -44,3 +44,5 @@ The recording prototype is disabled in these launchers. The optional two-token k
 Read [the measured results](performance/adreno830/REPORT.md). The measurement-only fixed 64-frame comparison produced finite, non-silent audio and observed 7.293 → 5.458 seconds median synthesis time. Hybrid generation changed seeded speech codes; this is not a bit-identical quality claim. Long-run energy and thermal superiority are unproven.
 
 Models, reference voices, generated audio, raw speech codes, cached programs and compiled libraries are intentionally absent from this source fork. The original research artifacts remain in the local workspace. The public evidence contains reviewed numeric measurements and clock/temperature traces.
+
+The separate [experimental Hexagon v79 branch](NPU_V79.md) adds native Termux NPU source builds and CPU/GPU/NSP/DDR telemetry. Its validation and performance results are separate from the stable OpenCL measurements above.

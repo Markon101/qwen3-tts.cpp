@@ -1,0 +1,22 @@
+[
+  {
+    "run": "npu-final17b-cpu-cpu-a",
+    "request": 0,
+    "error": "Code generation failed: Non-finite raw logits in talker prefill at index 0"
+  },
+  {
+    "run": "npu-final17b-cpu-cpu-a",
+    "request": 2,
+    "error": "Code generation failed: Non-finite raw logits in talker prefill at index 0"
+  },
+  {
+    "run": "npu-final17b-cpu-cpu-b",
+    "request": 2,
+    "error": "Code generation failed: Non-finite raw logits in talker prefill at index 0"
+  },
+  {
+    "run": "npu-final17b-gpu",
+    "request": 0,
+    "error": "Code generation failed: Non-finite raw logits in talker prefill at index 0"
+  }
+]

@@ -269,3 +269,5 @@ Thread-safe: one handle per worker thread.
 - [Qwen3-TTS](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base) by Alibaba Qwen team
 - [GGML](https://github.com/ggml-org/ggml) by Georgi Gerganov
 - [WavTokenizer](https://github.com/jishengpeng/WavTokenizer)
+
+Experimental native Hexagon v79 work is documented in [the NPU guide](docs/NPU_V79.md), with numerical controls and retained failures. The stable OpenCL profile remains on `snapdragon-adreno830`.
