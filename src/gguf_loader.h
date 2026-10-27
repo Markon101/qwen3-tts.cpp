@@ -76,8 +76,8 @@ bool load_tensor_data_from_file(
 
 // Helper to initialize backend with GPU preference and CPU fallback.
 // Tries: IGPU → GPU → ACCEL → CPU (in that order).
-// component_name is used only in error/log messages (e.g. "TTSTransformer").
-// Returns nullptr only if even the CPU backend fails (should never happen).
+// component_name also selects the optional transformer/decoder environment override.
+// A named requested device returns nullptr if unavailable, without CPU fallback.
 ggml_backend_t init_preferred_backend(const char * component_name, std::string * error_msg);
 
 // Release a backend obtained from init_preferred_backend().

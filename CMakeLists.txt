@@ -80,6 +80,7 @@ set(GGML_LINK_DIRS
     ${GGML_BUILD_DIR}/src/ggml-metal
     ${GGML_BUILD_DIR}/src/ggml-vulkan
     ${GGML_BUILD_DIR}/src/ggml-opencl
+    ${GGML_BUILD_DIR}/src/ggml-hexagon
     ${GGML_BUILD_DIR}/src/ggml-cuda
 )
 
@@ -483,3 +484,8 @@ add_test(NAME mimi_encoder_test
         --ref-codes reference/mimi_enc_py_codes.bin
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+option(QWEN3_TTS_NPU_TESTS "Build experimental native Android/Hexagon validation tools" OFF)
+if(QWEN3_TTS_NPU_TESTS)
+    add_subdirectory(tools/npu)
+endif()

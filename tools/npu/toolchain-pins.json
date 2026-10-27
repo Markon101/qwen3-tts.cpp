@@ -1,0 +1,142 @@
+{
+  "format_version": 1,
+  "source_reference": "https://github.com/Ishabdullah/OpenCL-S24-Ultra",
+  "sdk": {
+    "version": "6.6.0.0",
+    "tools_version": "19.0.07",
+    "url": "https://github.com/snapdragon-toolchain/hexagon-sdk/releases/download/v6.6.0.0/hexagon-sdk-v6.6.0.0-amd64-lnx.tar.xz",
+    "sha256": "4a916e42c1dab9efdf2e58773f901ea780fa43c907bf054ab76572a3b3d942f4",
+    "size": 694150896
+  },
+  "x86_runtime": [
+    {
+      "name": "libatomic1",
+      "version": "14.2.0-19",
+      "filename": "libatomic1_14.2.0-19_amd64.deb",
+      "size": 9308,
+      "sha256": "212b399aae2f7299203d261a57e49372e09565a9a5ea971905f94a3960366c05",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/gcc-14/libatomic1_14.2.0-19_amd64.deb",
+        "https://snapshot.debian.org/file/a478fbcba038f4a18db43b9771ee01a7da5ab23c"
+      ]
+    },
+    {
+      "name": "libgcc-s1",
+      "version": "14.2.0-19",
+      "filename": "libgcc-s1_14.2.0-19_amd64.deb",
+      "size": 72772,
+      "sha256": "3c71917b490d1a17aed43196a2787a256ecf060526cdb20216a74bedc061b150",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/gcc-14/libgcc-s1_14.2.0-19_amd64.deb",
+        "https://snapshot.debian.org/file/bdc0b54ff7f971ecd56ae54aea604d2ab0e47aaf"
+      ]
+    },
+    {
+      "name": "libstdc++6",
+      "version": "14.2.0-19",
+      "filename": "libstdc++6_14.2.0-19_amd64.deb",
+      "size": 713628,
+      "sha256": "ab1fa05837aa7a92aae748fd07a18a35f7d18bb4a71c4724fe2bbf0e32089de0",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/gcc-14/libstdc++6_14.2.0-19_amd64.deb",
+        "https://snapshot.debian.org/file/88eff3277c2e74be3878264096b958aab6ed33dd"
+      ]
+    },
+    {
+      "name": "libc6",
+      "version": "2.41-12+deb13u4",
+      "filename": "libc6_2.41-12+deb13u4_amd64.deb",
+      "size": 2846580,
+      "sha256": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/glibc/libc6_2.41-12+deb13u4_amd64.deb",
+        "https://snapshot.debian.org/file/27904cc1b58dd79f0768ba6aa6dd993edc411b97"
+      ]
+    },
+    {
+      "name": "libxml2",
+      "version": "2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+      "filename": "libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3_amd64.deb",
+      "size": 699724,
+      "sha256": "e0c6b63ce4602a036a526f60fe5e6c1586710688058d98fc1001b9b3147b7efd",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxml2/libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3_amd64.deb",
+        "https://snapshot.debian.org/file/1004cd76d8bbb2b8603eaf4ac38670d6b1b79928"
+      ]
+    },
+    {
+      "name": "libzstd1",
+      "version": "1.5.7+dfsg-1",
+      "filename": "libzstd1_1.5.7+dfsg-1_amd64.deb",
+      "size": 303836,
+      "sha256": "2f6a2aeacfc925eba8b00ac9139bc4bfccf8cacb09eb93de067074b26948eef9",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libz/libzstd/libzstd1_1.5.7+dfsg-1_amd64.deb",
+        "https://snapshot.debian.org/file/96dbb7ea8dced3367f661f31964693f4919c0f9a"
+      ]
+    },
+    {
+      "name": "libtinfo6",
+      "version": "6.5+20250216-2",
+      "filename": "libtinfo6_6.5+20250216-2_amd64.deb",
+      "size": 348380,
+      "sha256": "8b9f6a7983e9418564e48a627518de4c03917b56efe68d7f3e93bd8fffa1cc10",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/n/ncurses/libtinfo6_6.5+20250216-2_amd64.deb",
+        "https://snapshot.debian.org/file/71f2f41f5570ca3482ffb5db97b34f46c6f42b65"
+      ]
+    },
+    {
+      "name": "zlib1g",
+      "version": "1:1.3.dfsg+really1.3.1-1+b1",
+      "filename": "zlib1g_1.3.dfsg+really1.3.1-1+b1_amd64.deb",
+      "size": 88892,
+      "sha256": "015be740d6236ad114582dea500c1d907f29e16d6db00566ca32fb68d71ac90d",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/z/zlib/zlib1g_1.3.dfsg+really1.3.1-1+b1_amd64.deb",
+        "https://snapshot.debian.org/file/6521c4fb859cda27142c655d2aa30c9d31e40ff7"
+      ]
+    },
+    {
+      "name": "libgmp10",
+      "version": "2:6.3.0+dfsg-3",
+      "filename": "libgmp10_6.3.0+dfsg-3_amd64.deb",
+      "size": 560220,
+      "sha256": "d0d0265eb01770f17afd0f7c8c0622f80479dcfbbe13653a0debeec61464e622",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/gmp/libgmp10_6.3.0+dfsg-3_amd64.deb",
+        "https://snapshot.debian.org/file/63366c7a4935ec3db46d67fbe6d4c073b0c9fafb"
+      ]
+    }
+  ],
+  "native_runtime": [
+    {
+      "name": "argp",
+      "version": "1.5.0-1",
+      "filename": "argp_1.5.0-1_aarch64.deb",
+      "size": 21176,
+      "sha256": "4096bfb8cba379efc3699e94e1cee400e72c274d734b5c1ed5f274ec42003405"
+    },
+    {
+      "name": "libdw",
+      "version": "0.197",
+      "filename": "libdw_0.197_aarch64.deb",
+      "size": 216444,
+      "sha256": "6c25c05cbba67671238434306ca5e55444d29c9b425600a710618a189d4f9ebb"
+    },
+    {
+      "name": "libelf",
+      "version": "0.197",
+      "filename": "libelf_0.197_aarch64.deb",
+      "size": 124228,
+      "sha256": "c47ee2eee8450274f22218307b31471b76113b2825d3c69a5fdc47180cd68c13"
+    },
+    {
+      "name": "qemu-user-x86-64",
+      "version": "1:11.1.2",
+      "filename": "qemu-user-x86-64_1%3a11.1.2_aarch64.deb",
+      "size": 574124,
+      "sha256": "6ef8219c876d576a2df22d2c84453c59dd70d4e48f18b070c3788121318ba8e7"
+    }
+  ]
+}

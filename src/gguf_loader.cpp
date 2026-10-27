@@ -49,6 +49,28 @@ ggml_backend_t init_preferred_backend(const char * component_name, std::string *
     // Debug escape hatch: force the CPU backend even when a GPU is present.
     const char * force_cpu = getenv("QWEN3_TTS_FORCE_CPU");
 
+    // Named experimental devices are owned by this component, not the shared
+    // GPU singleton. This permits HTP generation with an independent decoder.
+    const char * requested = nullptr;
+    if (component_name && strcmp(component_name, "TTSTransformer") == 0) {
+        requested = getenv("QWEN3_TTS_TRANSFORMER_BACKEND");
+    } else if (component_name && strcmp(component_name, "AudioTokenizerDecoder") == 0) {
+        requested = getenv("QWEN3_TTS_DECODER_BACKEND");
+    }
+    if (!(force_cpu && force_cpu[0] == '1') && requested) {
+        const char * device = nullptr;
+        if (strcmp(requested, "hexagon") == 0 || strcmp(requested, "htp") == 0 || strcmp(requested, "HTP0") == 0) {
+            device = "HTP0";
+        } else if (strcmp(requested, "opencl") == 0 || strcmp(requested, "GPUOpenCL") == 0) {
+            device = "GPUOpenCL";
+        }
+        if (device) {
+            ggml_backend_t selected = ggml_backend_init_by_name(device, nullptr);
+            if (!selected && error_msg) *error_msg = std::string("Requested backend unavailable: ") + device;
+            return selected;
+        }
+    }
+
     // Per-component backend override (e.g. QWEN3_TTS_TRANSFORMER_BACKEND=cpu)
     bool force_component_cpu = (force_cpu && force_cpu[0] == '1');
     if (component_name) {

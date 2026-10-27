@@ -1,4 +1,4 @@
 [submodule "ggml"]
 	path = ggml
 	url = https://github.com/Markon101/ggml.git
-	branch = snapdragon-adreno830
+	branch = npu-v79-bringup

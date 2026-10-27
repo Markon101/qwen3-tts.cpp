@@ -9,7 +9,7 @@ THERMAL={}
 for d in pathlib.Path('/sys/class/thermal').glob('thermal_zone*'):
     try:
         name=(d/'type').read_text().strip()
-        if name.startswith(('gpuss-','cpuss-','cpu-')) or name=='battery': THERMAL[name]=d/'temp'
+        if name.startswith(('gpuss-','cpuss-','cpu-','nsphvx-','nsphmx-')) or name in ('battery','ddr'): THERMAL[name]=d/'temp'
     except OSError: pass
 KGSL=pathlib.Path('/sys/class/kgsl/kgsl-3d0')
 COUNTERS={f'gpu/{name}':KGSL/name for name in ['devfreq/cur_freq','devfreq/max_freq','devfreq/min_freq','devfreq/gpu_load','devfreq/target_freq','gpu_busy_percentage','gpubusy','thermal_pwrlevel','throttling','temp','clock_mhz']}
