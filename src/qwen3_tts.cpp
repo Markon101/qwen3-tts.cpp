@@ -22,6 +22,25 @@
 #include <sys/resource.h>
 #endif
 
+// The transformer consumes a complete hidden-size speaker row. Reject a
+// mismatched cached embedding before the pointer reaches the graph builder.
+static bool validate_speaker_embedding(const float * data, int32_t count,
+                                       int32_t expected, std::string & error) {
+    if (!data || count <= 0) { error = "Invalid embedding"; return false; }
+    if (count != expected) {
+        error = "Speaker embedding dimension mismatch: got " + std::to_string(count) +
+                ", expected " + std::to_string(expected);
+        return false;
+    }
+    for (int32_t i = 0; i < count; ++i) {
+        if (!std::isfinite(data[i])) {
+            error = "Speaker embedding contains a non-finite value";
+            return false;
+        }
+    }
+    return true;
+}
+
 // Minimal JSON value extraction without pulling in a library
 // Only used for generation_config.json parsing (flat key-value).
 static bool json_get_float(const std::string & json, const std::string & key, float & out) {
@@ -807,10 +826,8 @@ int32_t Qwen3TTS::synthesize_codes(const std::string & text,
     tts_result result;
     if (!models_loaded_) { error_msg_ = "Models not loaded"; return -1; }
     std::vector<int32_t> codes;
-    // Use speaker_embedding_dim_, NOT hidden_size — they differ on 1.7B
-    // (hidden_size=2048, embedding_dim=1024). Passing hidden_size would cause
-    // build_prefill_graph to read 8KB past the end of the vector.
-    const int32_t spk_dim = speaker_embedding_dim_;
+    // The graph builder consumes exactly one hidden-size speaker row.
+    const int32_t spk_dim = transformer_.get_config().hidden_size;
     std::vector<float> zero_emb(spk_dim, 0.0f);
     synthesize_internal(text, zero_emb.data(), params, result, &codes);
     if (!result.success) { error_msg_ = result.error_msg; return -1; }
@@ -857,7 +874,8 @@ int32_t Qwen3TTS::synthesize_codes_with_embedding(const std::string & text,
                                                     const tts_params & params) {
     tts_result result;
     if (!models_loaded_) { error_msg_ = "Models not loaded"; return -1; }
-    if (!embedding || embedding_size <= 0) { error_msg_ = "Invalid embedding"; return -1; }
+    if (!validate_speaker_embedding(embedding, embedding_size,
+            transformer_.get_config().hidden_size, error_msg_)) return -1;
     std::vector<int32_t> codes;
     synthesize_internal(text, embedding, params, result, &codes);
     if (!result.success) { error_msg_ = result.error_msg; return -1; }
@@ -1080,11 +1098,8 @@ tts_result Qwen3TTS::synthesize(const std::string & text, const tts_params & par
     }
 
     // Default: no voice reference — use a zero speaker embedding.
-    // Size must match the speaker encoder output dimension (always 1024),
-    // NOT the transformer hidden size (which is 2048 on 1.7B).
-    // Using hidden_size here would cause build_prefill_graph to read 8KB
-    // past the end of the vector on 1.7B models.
-    const int32_t spk_dim = speaker_embedding_dim_;
+    // Size follows the loaded transformer (1024 for this 0.6B, 2048 for 1.7B).
+    const int32_t spk_dim = transformer_.get_config().hidden_size;
     std::vector<float> zero_emb(spk_dim, 0.0f);
     return synthesize_internal(text, zero_emb.data(), params, result);
 }
@@ -1130,6 +1145,8 @@ tts_result Qwen3TTS::synthesize_with_voice(const std::string & text,
         return result;
     }
     result.t_encode_ms = get_time_ms() - t0;
+    if (!validate_speaker_embedding(speaker_embedding.data(), speaker_embedding.size(),
+            transformer_.get_config().hidden_size, result.error_msg)) return result;
 
     // ICL mode: encode reference audio to discrete codes using Mimi encoder
     if (params.icl_mode && !params.ref_text.empty()) {
@@ -1296,7 +1313,8 @@ tts_result Qwen3TTS::synthesize_with_embedding(const std::string & text,
                                                  const tts_params & params) {
     tts_result result;
     if (!models_loaded_) { result.error_msg = "Models not loaded"; return result; }
-    if (!embedding || embedding_size <= 0) { result.error_msg = "Invalid embedding"; return result; }
+    if (!validate_speaker_embedding(embedding, embedding_size,
+            transformer_.get_config().hidden_size, result.error_msg)) return result;
     return synthesize_internal(text, embedding, params, result);
 }
 
@@ -1385,6 +1403,7 @@ void Qwen3TTS::set_audio_chunk_callback(tts_audio_chunk_callback_t cb, int32_t c
 
 // --- get_embedding_dim -----------------------------------------------------
 int32_t Qwen3TTS::get_embedding_dim() const {
+    if (transformer_loaded_) return transformer_.get_config().hidden_size;
     if (encoder_loaded_) {
         int32_t d = audio_encoder_.get_config().embedding_dim;
         return (d > 0) ? d : speaker_embedding_dim_;

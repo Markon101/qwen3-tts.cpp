@@ -68,13 +68,16 @@ int main(int argc, char **argv) {
     FILE *f = fopen(argv[2], "rb");
     uint32_t n = 0;
     if (!f) return 3;
-    bool ok = fread(&n, 4, 1, f) == 1 && n == 1024;
-    std::vector<float> speaker(n == 1024 ? n : 0);
+    bool ok = fread(&n, 4, 1, f) == 1 && n > 0 && n <= 16384;
+    std::vector<float> speaker(ok ? n : 0);
     ok = ok && fread(speaker.data(), 4, n, f) == n;
     fclose(f);
     if (!ok) return 3;
     qwen3_tts::TTSTransformer transformer;
     if (!transformer.load_model(argv[1])) return 4;
+    if (n != uint32_t(transformer.get_config().hidden_size)) {
+        fprintf(stderr, "Speaker embedding dimension mismatch\n"); return 4;
+    }
     transformer.set_n_threads(2); transformer.set_seed(20261026);
     if (getenv("QWEN_NPU_TRACE_NODES")) transformer.set_eval_callback(trace_node, nullptr);
     bool all_passed = true;

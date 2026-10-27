@@ -86,8 +86,8 @@ int main(int argc, char **argv) {
         FILE *f = fopen(argv[4], "rb");
         uint32_t n = 0;
         if (!f) return 4;
-        bool ok = fread(&n, 4, 1, f) == 1 && n == 1024;
-        std::vector<float> speaker(n == 1024 ? n : 0);
+        bool ok = fread(&n, 4, 1, f) == 1 && n == uint32_t(h);
+        std::vector<float> speaker(ok ? n : 0);
         ok = ok && fread(speaker.data(), 4, n, f) == n;
         fclose(f);
         if (!ok) return 4;

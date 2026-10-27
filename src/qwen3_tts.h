@@ -333,10 +333,9 @@ public:
     const std::string & get_error() const { return error_msg_; }
     bool is_loaded() const { return models_loaded_; }
 
-    // Returns the speaker embedding dimension from the encoder config stored
-    // in the GGUF metadata. Returns 1024 if the config has not been populated
-    // yet (encoder is lazy-loaded). Callers should use this instead of
-    // hardcoding 1024 to stay correct across model variants.
+    // Returns the speaker-row width required by the loaded transformer.
+    // Before loading, falls back to available encoder configuration/metadata.
+    // Callers must query this instead of reusing an embedding across model sizes.
     int32_t get_embedding_dim() const;
 
     // True when the Mimi encoder was loaded from the tokenizer GGUF (ICL path).

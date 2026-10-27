@@ -222,9 +222,8 @@ int32_t qwen3_tts_sample_rate(const Qwen3Tts * /*tts*/) { return 24000; }
 
 int32_t qwen3_tts_embedding_size(const Qwen3Tts * tts) {
     if (!tts || !tts->engine.is_loaded()) return 0;
-    // Read the actual embedding dimension from the speaker encoder config
-    // stored in the transformer GGUF metadata, rather than hardcoding 1024.
-    // Falls back to 1024 if the config hasn't been populated yet (encoder lazy-loads).
+    // Query the loaded transformer's required speaker-row width; the encoder
+    // is lazy-loaded, and a different model size may require a different width.
     int32_t dim = tts->engine.get_embedding_dim();
     return (dim > 0) ? dim : 1024;
 }
@@ -770,6 +769,11 @@ static Qwen3TtsResult ** batch_impl(
         instruct_ptr = &instruct_vec;
     }
 
+    if (embedding && embedding_size != tts->engine.get_embedding_dim()) {
+        tts->last_error = "Speaker embedding dimension mismatch";
+        ARP_END
+        return nullptr;
+    }
     const float * emb_ptr = (embedding && embedding_size > 0) ? embedding : nullptr;
     auto results = tts->engine.synthesize_batch(text_vec, emb_ptr, cpp, instruct_ptr);
 
