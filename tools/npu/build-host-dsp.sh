@@ -24,4 +24,4 @@ cmake -S "$REPO_DIR" -B "$REPO_DIR/.cache/npu/app-build" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release -DGGML_BUILD_DIR="$BUILD_DIR" \
   -DQWEN3_TTS_TIMING=ON -DQWEN3_TTS_NPU_TESTS=ON
 cmake --build "$REPO_DIR/.cache/npu/app-build" --target qwen3-tts-cli \
-  npu-probe-vendor npu-test-matmul npu-test-transformer npu-test-generation --parallel "${HOST_BUILD_JOBS:-2}"
+  npu-probe-vendor npu-test-matmul npu-test-transformer npu-test-generation npu-test-clone-reference npu-test-clone-prefill --parallel "${HOST_BUILD_JOBS:-2}"
