@@ -1,0 +1,13 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Copy this tracked template to the root of the existing phone workspace.
+set -eu
+NPU_WORKSPACE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+NPU_REPO=${QWEN_NPU_REPO_DIR:-"$NPU_WORKSPACE/repos/Markon101-qwen3-tts.cpp"}
+export QWEN_MODELS_DIR=${QWEN_MODELS_DIR:-"$NPU_WORKSPACE/models"}
+export QWEN_NPU_OUTPUT=${QWEN_NPU_OUTPUT:-"$NPU_WORKSPACE/npu-test.wav"}
+if [ "${QWEN_NPU_DEMO_EMBEDDING_06B+x}" != x ] &&
+   [ "$QWEN_MODELS_DIR" = "$NPU_WORKSPACE/models" ] &&
+   [ -r "$NPU_WORKSPACE/benchmark-results/audio/speaker_06b.bin" ]; then
+  export QWEN_NPU_DEMO_EMBEDDING_06B="$NPU_WORKSPACE/benchmark-results/audio/speaker_06b.bin"
+fi
+exec sh "$NPU_REPO/npu.sh" "$@"
