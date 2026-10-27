@@ -1,0 +1,20 @@
+{
+  "created_utc": "2026-10-27T17:55:10.499997+00:00",
+  "reference_a": {
+    "samples_cpu_and_npu_human_report": "both sound great",
+    "speaker_embedding_count": 2048,
+    "cpu_and_gpu_extraction_bit_identical": true,
+    "valid_cached_reference_wav_unchanged_by_guard": true
+  },
+  "reference_b": {
+    "cpu_npu_and_icl_listening_status": "pending; user requested pause",
+    "speaker_embedding_count": 2048,
+    "full_pipeline_and_standalone_extraction_bit_identical": true,
+    "direct_reference_and_cached_wav_bit_identical": true,
+    "asr_model": "google/gemini-3.8-flash",
+    "transcript_human_verified": false
+  },
+  "thermal_policy": "measurement_only",
+  "temperature_limits": null,
+  "scope": "Input audio, transcript, embeddings, generated audio/codes and activation fixtures remain outside Git. No new performance optimization or speed claim."
+}

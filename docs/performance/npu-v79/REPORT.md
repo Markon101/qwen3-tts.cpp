@@ -1,5 +1,7 @@
 # Hexagon v79 experiment — 2026-10-27 UTC
 
+**Later input-width correction:** the prior 1.7B preset-based runs supplied a 1024-float 0.6B speaker embedding to a 2048-wide model. The old API did not validate this and could read beyond the embedding. Those runs are invalid conditioning controls even where float outputs were finite. The [reference-voice audit](../voice-cloning-20261027/REPORT.md) adds the guard and records new correctly sized reference tests. Historical data below is retained; no 1.7B speedup claim is revived.
+
 Native, non-root Termux v79 execution is working on this S25 Ultra. The source-built backend passes independent matrix and fixed-input model controls after an activation-overflow fix. The final NPU TTS path completed fixed 64-frame requests with raw-logit and decoded-audio validation. **No end-to-end speedup is established:** 0.6B remains faster on the tuned CPU generator, and failed 1.7B CPU/OpenCL control requests invalidate a clean speed comparison.
 
 The stable OpenCL default branch is preserved. Source, build helpers and reviewed numeric evidence are published on `npu-v79-bringup`; models, voices, generated audio, raw activations/codes, SDK contents and compiled libraries remain private. [Build/run instructions](../../NPU_V79.md) describe the exact route and its attribution.
