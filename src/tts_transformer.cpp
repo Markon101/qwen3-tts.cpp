@@ -17,6 +17,21 @@
 
 namespace qwen3_tts {
 
+// Validate raw graph outputs before sampler masks intentionally introduce -INF.
+static bool validate_logits(const std::vector<float> & values, const char * stage,
+                            std::string & error) {
+    const char * enabled = getenv("QWEN3_TTS_VALIDATE_LOGITS");
+    if (!enabled || enabled[0] != '1') return true;
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (!std::isfinite(values[i])) {
+            error = std::string("Non-finite raw logits in ") + stage +
+                    " at index " + std::to_string(i);
+            return false;
+        }
+    }
+    return true;
+}
+
 // KV cache element type: F16 (default, half RAM) or F32 (bit-exact, 2× RAM).
 // Controlled by -DQWEN3_TTS_KV_F32 compile flag.
 #ifdef QWEN3_TTS_KV_F32
@@ -2391,6 +2406,10 @@ bool TTSTransformer::forward_prefill(const float * prefill_embd, int32_t n_token
         if (new_used > state_.cache.n_used) state_.cache.n_used = new_used;
     }
     
+    if (logits_out && !validate_logits(*logits_out, "talker prefill", error_msg_)) {
+        ggml_backend_sched_reset(state_.sched);
+        return false;
+    }
     ggml_backend_sched_reset(state_.sched);
 #ifdef QWEN3_TTS_TIMING
     t1 = clk::now();
@@ -2527,6 +2546,11 @@ bool TTSTransformer::forward_step(const float * step_embd, int32_t n_past,
     
     output.resize(model_.config.codec_vocab_size);
     ggml_backend_tensor_get(logits, output.data(), 0, output.size() * sizeof(float));
+    if (!validate_logits(output, "talker step", error_msg_)) {
+        ggml_backend_sched_reset(state_.sched);
+        return false;
+    }
+
     
     {
         const int32_t new_used = n_past + 1;
@@ -2853,6 +2877,10 @@ bool TTSTransformer::predict_codes_autoregressive(const float * hidden, int32_t 
         ggml_backend_tensor_get(logits, logits_data.data(), 0, 
                                  cfg.code_pred_vocab_size * sizeof(float));
         
+        if (!validate_logits(logits_data, "code predictor prefill", error_msg_)) {
+            ggml_backend_sched_reset(state_.sched);
+            return false;
+        }
         output[0] = sample_or_argmax(logits_data.data(), cfg.code_pred_vocab_size);
         
         ggml_backend_sched_reset(state_.sched);
@@ -2958,6 +2986,10 @@ bool TTSTransformer::predict_codes_autoregressive(const float * hidden, int32_t 
         ggml_backend_tensor_get(logits, logits_data.data(), 0, 
                                  cfg.code_pred_vocab_size * sizeof(float));
         
+        if (!validate_logits(logits_data, "code predictor step", error_msg_)) {
+            ggml_backend_sched_reset(state_.sched);
+            return false;
+        }
         output[step] = sample_or_argmax(logits_data.data(), cfg.code_pred_vocab_size);
         
         ggml_backend_sched_reset(state_.sched);
