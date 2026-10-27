@@ -1,0 +1,40 @@
+{
+  "created_utc": "2026-10-27T21:31:06.632087+00:00",
+  "app_parent_commit": "a522028429017b04f47e54810de4bc443ebd44a1",
+  "ggml_commit": "148852d7a85b05f2645bd8c559294d529e66f8af",
+  "source_sha256": {
+    "npu.sh": "8854db753099b627cfa3efdcb8b4a71375c1bb17fef6ad4b5d043eb80dc641fd",
+    "tools/npu/run-tts.sh": "dad2b01ce7f99bf77c3e66d226a0fb3d89afee606e748e401a36f01603e04d0b",
+    "tools/npu/native-env.sh": "a704c243a5854dc677b31702aaa53bf5b9c05abda01a4f65796d6cf192976f31",
+    "tools/npu/launch.py": "ee51c041060dda135658558bf5775a524d3f62177eac61651aa8f555844c3fd0",
+    "tools/npu/test-launchers.py": "060c3264b058e1fcceab884b76d27b668f909f9d833f2477819603e2b32b7bf8",
+    "scripts/android/profile_runner.py": "73e67ac1fb07e436cb08c65a40b292221287394e2ca25420dca6960ea9e5b349",
+    "tools/npu/workspace-npu.sh.in": "1deef0b2a41026af0c4b41eba39150197fc302a1e14b580e1828e2f715e99996"
+  },
+  "workspace_shortcut_matches_tracked_template": true,
+  "raw_test_logs_sha256": {
+    "06b-extract.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "06b-extract.stderr.log": "580274c23b0827058923c8f3f5d6f5b252b4e6495a293967f8101799953aaafa",
+    "06b-server.stdout.log": "844a46fe5eb6a599fb9ed075fe77904885f8b2ae7b99fef0dea9f60639eb6dfd",
+    "06b-server.stderr.log": "cc55c74c045cf4e4a8451fb982a73b7079a1c50e7c198d5253d004110d691df5",
+    "06b-nonstream.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "06b-nonstream.stderr.log": "484597aa70aaf75a3318f05a65b398d202cb55840278cff3cbef35b821c43ce5",
+    "17b-extract.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "17b-extract.stderr.log": "0e8b0df1a8170a0a6da5fcc57cf6011b0b3e27ce4364c60e65d748336ea5b72f",
+    "17b-server.stdout.log": "2e8fb5ff82658eb0112266fe0eadcf2c82bf2b0c6ab9c38e035f841f576716e7",
+    "17b-server.stderr.log": "60abbc6715d0a977998b9b43ec0f0ccba457295e98b0d4f7d671a308ab867f37",
+    "17b-nonstream.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "17b-nonstream.stderr.log": "44f57bdcbe425069dbbd0afb4bbb0e4fba6f3834d7bc487268d84e0df41bb951",
+    "06b final-server.stdout.log": "78a7dca5c6b86716cb579d96270b6eefd56c40d567047d93cdb3731f1ca16d12",
+    "06b final-server.stderr.log": "cff2709f55007f7058ca89b60bb3b183e7e9dad4aa77d26370cba7819831971f",
+    "17b final-server.stdout.log": "0716c752431ba942f9816208773f7361b8f1d0a0ba30fafa1d93aa1347280965",
+    "17b final-server.stderr.log": "ff71281d955c2a2abbf8b28c88a08edfa3b9b6c45c6c07d5a2014d69be94e0c7",
+    "0.6b transcript-file.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "0.6b transcript-file.stderr.log": "f99df3bcfe9be278761a54a3fe2303fbf4d6e817b7ee25083a66302ed8398ab4",
+    "1.7b transcript-file.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "1.7b transcript-file.stderr.log": "b6c4583e33bdce7a244a6369c3c8a040ca700d974906bd81585172355aac9f54"
+  },
+  "thermal_policy": "measurement_only",
+  "temperature_limits": null,
+  "performance_claim": null
+}

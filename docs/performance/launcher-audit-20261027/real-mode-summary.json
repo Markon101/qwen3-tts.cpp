@@ -1,0 +1,26 @@
+[
+  {
+    "model": "0.6b",
+    "extracted_embedding_floats": 1024,
+    "extraction_only_no_generation": true,
+    "server_request_count": 6,
+    "successful_requests": 5,
+    "expected_invalid_embedding_requests": 1,
+    "recovery_after_error": true,
+    "nonstreaming_icl_cli_passed": true,
+    "workspace_transcript_file_icl_passed": true,
+    "final_inline_runner_server_passed": true
+  },
+  {
+    "model": "1.7b",
+    "extracted_embedding_floats": 2048,
+    "extraction_only_no_generation": true,
+    "server_request_count": 6,
+    "successful_requests": 5,
+    "expected_invalid_embedding_requests": 1,
+    "recovery_after_error": true,
+    "nonstreaming_icl_cli_passed": true,
+    "workspace_transcript_file_icl_passed": true,
+    "final_inline_runner_server_passed": true
+  }
+]

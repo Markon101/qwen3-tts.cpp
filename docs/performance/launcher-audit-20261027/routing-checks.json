@@ -1,0 +1,325 @@
+{
+  "suite": "inference-free NPU launchers",
+  "tests": 79,
+  "passed": 79,
+  "failed": 0,
+  "hardware_execution": false,
+  "results": [
+    {
+      "name": "0.6b basic npu.sh",
+      "passed": true
+    },
+    {
+      "name": "0.6b basic tools/npu/run-tts.sh",
+      "passed": true
+    },
+    {
+      "name": "0.6b demo preset=False",
+      "passed": true
+    },
+    {
+      "name": "0.6b demo preset=True",
+      "passed": true
+    },
+    {
+      "name": "0.6b reference",
+      "passed": true
+    },
+    {
+      "name": "0.6b icl",
+      "passed": true
+    },
+    {
+      "name": "0.6b embedding",
+      "passed": true
+    },
+    {
+      "name": "0.6b extract",
+      "passed": true
+    },
+    {
+      "name": "0.6b server stdin/stdout",
+      "passed": true
+    },
+    {
+      "name": "0.6b UTF-8 transcript file npu.sh",
+      "passed": true
+    },
+    {
+      "name": "0.6b help ignores missing transcript file npu.sh",
+      "passed": true
+    },
+    {
+      "name": "0.6b UTF-8 transcript file tools/npu/run-tts.sh",
+      "passed": true
+    },
+    {
+      "name": "0.6b help ignores missing transcript file tools/npu/run-tts.sh",
+      "passed": true
+    },
+    {
+      "name": "0.6b UTF-8 BOM transcript file",
+      "passed": true
+    },
+    {
+      "name": "0.6b empty transcript with saved embedding",
+      "passed": true
+    },
+    {
+      "name": "0.6b playback explicit_output=False",
+      "passed": true
+    },
+    {
+      "name": "0.6b playback explicit_output=True",
+      "passed": true
+    },
+    {
+      "name": "0.6b synthesize and save embedding with cache output",
+      "passed": true
+    },
+    {
+      "name": "1.7b basic npu.sh",
+      "passed": true
+    },
+    {
+      "name": "1.7b basic tools/npu/run-tts.sh",
+      "passed": true
+    },
+    {
+      "name": "1.7b demo preset=False",
+      "passed": true
+    },
+    {
+      "name": "1.7b demo preset=True",
+      "passed": true
+    },
+    {
+      "name": "1.7b reference",
+      "passed": true
+    },
+    {
+      "name": "1.7b icl",
+      "passed": true
+    },
+    {
+      "name": "1.7b embedding",
+      "passed": true
+    },
+    {
+      "name": "1.7b extract",
+      "passed": true
+    },
+    {
+      "name": "1.7b server stdin/stdout",
+      "passed": true
+    },
+    {
+      "name": "1.7b UTF-8 transcript file npu.sh",
+      "passed": true
+    },
+    {
+      "name": "1.7b help ignores missing transcript file npu.sh",
+      "passed": true
+    },
+    {
+      "name": "1.7b UTF-8 transcript file tools/npu/run-tts.sh",
+      "passed": true
+    },
+    {
+      "name": "1.7b help ignores missing transcript file tools/npu/run-tts.sh",
+      "passed": true
+    },
+    {
+      "name": "1.7b UTF-8 BOM transcript file",
+      "passed": true
+    },
+    {
+      "name": "1.7b empty transcript with saved embedding",
+      "passed": true
+    },
+    {
+      "name": "1.7b playback explicit_output=False",
+      "passed": true
+    },
+    {
+      "name": "1.7b playback explicit_output=True",
+      "passed": true
+    },
+    {
+      "name": "1.7b synthesize and save embedding with cache output",
+      "passed": true
+    },
+    {
+      "name": "literal transcript-file flag text",
+      "passed": true
+    },
+    {
+      "name": "flag-like text and non-streaming",
+      "passed": true
+    },
+    {
+      "name": "explicit empty text preserved",
+      "passed": true
+    },
+    {
+      "name": "extract without reference",
+      "passed": true
+    },
+    {
+      "name": "voice conflict",
+      "passed": true
+    },
+    {
+      "name": "transcript without reference",
+      "passed": true
+    },
+    {
+      "name": "missing reference file",
+      "passed": true
+    },
+    {
+      "name": "transcript text/file conflict",
+      "passed": true
+    },
+    {
+      "name": "missing transcript-file option value",
+      "passed": true
+    },
+    {
+      "name": "empty transcript file",
+      "passed": true
+    },
+    {
+      "name": "missing transcript file",
+      "passed": true
+    },
+    {
+      "name": "non-UTF8 transcript file",
+      "passed": true
+    },
+    {
+      "name": "NUL transcript file",
+      "passed": true
+    },
+    {
+      "name": "oversized transcript file",
+      "passed": true
+    },
+    {
+      "name": "corrupted header saved embedding",
+      "passed": true
+    },
+    {
+      "name": "truncated header saved embedding",
+      "passed": true
+    },
+    {
+      "name": "truncated data saved embedding",
+      "passed": true
+    },
+    {
+      "name": "nonmatching header saved embedding",
+      "passed": true
+    },
+    {
+      "name": "empty saved embedding",
+      "passed": true
+    },
+    {
+      "name": "zero count saved embedding",
+      "passed": true
+    },
+    {
+      "name": "oversized saved embedding",
+      "passed": true
+    },
+    {
+      "name": "reference WAV as embedding saved embedding",
+      "passed": true
+    },
+    {
+      "name": "server rejects CLI --reference",
+      "passed": true
+    },
+    {
+      "name": "server rejects CLI --embedding-in",
+      "passed": true
+    },
+    {
+      "name": "server rejects CLI --embedding-out",
+      "passed": true
+    },
+    {
+      "name": "server rejects CLI --ref-text",
+      "passed": true
+    },
+    {
+      "name": "server rejects CLI --text",
+      "passed": true
+    },
+    {
+      "name": "server rejects CLI --output",
+      "passed": true
+    },
+    {
+      "name": "server rejects CLI --output-rate",
+      "passed": true
+    },
+    {
+      "name": "server rejects playback",
+      "passed": true
+    },
+    {
+      "name": "help without assets npu.sh",
+      "passed": true
+    },
+    {
+      "name": "partial-build help ignores invalid embedding npu.sh",
+      "passed": true
+    },
+    {
+      "name": "help without assets tools/npu/run-tts.sh",
+      "passed": true
+    },
+    {
+      "name": "partial-build help ignores invalid embedding tools/npu/run-tts.sh",
+      "passed": true
+    },
+    {
+      "name": "version ignores invalid saved embedding",
+      "passed": true
+    },
+    {
+      "name": "invalid demo embedding rejected",
+      "passed": true
+    },
+    {
+      "name": "custom model directory",
+      "passed": true
+    },
+    {
+      "name": "spaces and caller-relative paths",
+      "passed": true
+    },
+    {
+      "name": "child exit 23 propagated",
+      "passed": true
+    },
+    {
+      "name": "SIGTERM returns 143 and reaps child",
+      "passed": true
+    },
+    {
+      "name": "SIGINT returns 130 and reaps child",
+      "passed": true
+    },
+    {
+      "name": "SIGHUP returns 129 and reaps child",
+      "passed": true
+    },
+    {
+      "name": "telemetry stays in isolated repository",
+      "passed": true
+    }
+  ]
+}
