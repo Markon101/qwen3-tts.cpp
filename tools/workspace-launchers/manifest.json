@@ -1,0 +1,38 @@
+[
+  {
+    "workspace_filename": "npu.sh",
+    "tracked_content": "tools/npu/workspace-npu.sh.in",
+    "sha256": "1deef0b2a41026af0c4b41eba39150197fc302a1e14b580e1828e2f715e99996",
+    "role": "current NPU shortcut template"
+  },
+  {
+    "workspace_filename": "run-tts-0.6b.sh",
+    "tracked_content": "tools/workspace-launchers/run-tts-0.6b.sh.snapshot",
+    "sha256": "156c26add902130e1dec52201d232ff40094eaa537112e2965408da52d64d2fa",
+    "role": "preserved legacy workspace launcher"
+  },
+  {
+    "workspace_filename": "run-tts-1.7b.sh",
+    "tracked_content": "tools/workspace-launchers/run-tts-1.7b.sh.snapshot",
+    "sha256": "45b71a8018f5ccb6c6680676046b2a2eab24e61225794e4477e91b18b22912ef",
+    "role": "preserved legacy workspace launcher"
+  },
+  {
+    "workspace_filename": "run-tts-fast-0.6b.sh",
+    "tracked_content": "tools/workspace-launchers/run-tts-fast-0.6b.sh.snapshot",
+    "sha256": "18cd8fbd0414a288dc25e2cbffb3dacbfabbc3919c9ce0965748006c60d2b14a",
+    "role": "preserved legacy workspace launcher"
+  },
+  {
+    "workspace_filename": "run-tts-fast-1.7b.sh",
+    "tracked_content": "tools/workspace-launchers/run-tts-fast-1.7b.sh.snapshot",
+    "sha256": "5754e5441d995a6ee064635554bba2231f3e433143d0e37c07af52b089da3514",
+    "role": "preserved legacy workspace launcher"
+  },
+  {
+    "workspace_filename": "run-tts-optimized.sh",
+    "tracked_content": "tools/workspace-launchers/run-tts-optimized.sh.snapshot",
+    "sha256": "f1e1f791131f3a77d2f6186db530e8f7471593389a2f06f562c9dacc4bb7d29f",
+    "role": "preserved legacy workspace launcher"
+  }
+]

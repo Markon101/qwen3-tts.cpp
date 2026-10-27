@@ -1,0 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+WORKSPACE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "$WORKSPACE_DIR/run-tts-optimized.sh" 1.7b "$@"
