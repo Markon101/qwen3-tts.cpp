@@ -27,8 +27,14 @@ def fail(message):
 
 
 def usage():
-    print('Usage: sh npu-max.sh [0.6b|1.7b] [TTS options]\n'
-          '       python tools/npu-max/launch.py 0.6b|1.7b [TTS options]\n\n'
+    print('Usage: sh npu-max.sh [0.6b|1.7b] [--profile htp|mixed|opencl|cpu] [TTS options]\n'
+          '       python tools/npu-max/launch.py 0.6b|1.7b [--profile htp|mixed|opencl|cpu] [TTS options]\n\n'
+          'Profiles:\n'
+          '  -p, --profile htp | --htp        Full NPU acceleration: encoder, talker, predictor & vocoder on HTP (default)\n'
+          '  -p, --profile mixed | --mixed    Hybrid: encoder & transformer on HTP, vocoder on Adreno OpenCL GPU\n'
+          '  -p, --profile opencl | --opencl  OpenCL GPU backend fallback\n'
+          '  -p, --profile cpu | --cpu        CPU backend fallback\n'
+          '  --nhvx 1..6                      Hexagon HVX worker count (default: 4)\n\n'
           'Voice modes:\n'
           '  --text TEXT                              no-reference speech\n'
           '  -r REF.wav --text TEXT                   speaker-only clone\n'
@@ -41,6 +47,54 @@ def usage():
           'Root npu-max.sh supplies a short demo only when text was not provided.\n'
           'Use QWEN_MODELS_DIR for an external model directory.\n'
           'Temperatures/clocks are logged without added thermal limits.')
+
+
+def extract_launcher_options(arguments):
+    cli_profile = None
+    cli_nhvx = None
+    remaining = []
+    i = 0
+    while i < len(arguments):
+        arg = arguments[i]
+        if arg in VALUE_FLAGS:
+            remaining.append(arg)
+            if i + 1 < len(arguments):
+                remaining.append(arguments[i + 1])
+                i += 2
+            else:
+                i += 1
+        elif arg in ('-p', '--profile'):
+            if i + 1 == len(arguments):
+                fail('missing value for ' + arg)
+            val = arguments[i + 1]
+            if cli_profile is not None and cli_profile != val:
+                fail('conflicting profile options: ' + cli_profile + ' vs ' + val)
+            cli_profile = val
+            i += 2
+        elif arg.startswith('--profile='):
+            val = arg.split('=', 1)[1]
+            if cli_profile is not None and cli_profile != val:
+                fail('conflicting profile options: ' + cli_profile + ' vs ' + val)
+            cli_profile = val
+            i += 1
+        elif arg in ('--htp', '--mixed', '--cpu', '--opencl'):
+            val = arg[2:]
+            if cli_profile is not None and cli_profile != val:
+                fail('conflicting profile options: ' + cli_profile + ' vs ' + val)
+            cli_profile = val
+            i += 1
+        elif arg == '--nhvx':
+            if i + 1 == len(arguments):
+                fail('missing value for --nhvx')
+            cli_nhvx = arguments[i + 1]
+            i += 2
+        elif arg.startswith('--nhvx='):
+            cli_nhvx = arg.split('=', 1)[1]
+            i += 1
+        else:
+            remaining.append(arg)
+            i += 1
+    return cli_profile, cli_nhvx, remaining
 
 
 def scan(arguments):
@@ -85,12 +139,15 @@ def writable_parent(value, label):
 
 
 def main(argv):
-    profile = os.environ.get('QWEN_NPU_MAX_PROFILE', 'htp')
-    if profile not in ('htp', 'mixed', 'cpu', 'opencl'):
-        fail('QWEN_NPU_MAX_PROFILE must be htp, mixed, cpu or opencl')
     demo = bool(argv and argv[0] == '--demo')
     if demo:
         argv = argv[1:]
+    cli_profile, cli_nhvx, argv = extract_launcher_options(argv)
+    profile = cli_profile if cli_profile is not None else os.environ.get('QWEN_NPU_MAX_PROFILE', 'htp')
+    if profile not in ('htp', 'mixed', 'cpu', 'opencl'):
+        fail('QWEN_NPU_MAX_PROFILE / --profile must be htp, mixed, cpu or opencl')
+    if cli_nhvx is not None and cli_nhvx not in ('1', '2', '3', '4', '5', '6'):
+        fail('NHVX must be 1..6 for this v79 device')
     if argv and argv[0] in ('0.6b', '1.7b'):
         size, args = argv[0], argv[1:]
     elif demo and (not argv or argv[0].startswith('-')):
@@ -205,13 +262,16 @@ def main(argv):
                 'GGML_OPENCL_Q8_SMALL2', 'GGML_HEXAGON_OPSTAGE']:
         env.pop(key, None)
     backend = {'htp': 'hexagon', 'mixed': 'hexagon', 'cpu': 'cpu', 'opencl': 'opencl'}[profile]
-    env.update(QWEN3_TTS_TRANSFORMER_BACKEND=backend,
+    env.update(QWEN_NPU_MAX_PROFILE=profile,
+               QWEN3_TTS_TRANSFORMER_BACKEND=backend,
                QWEN3_TTS_ENCODER_BACKEND=backend,
                QWEN3_TTS_DECODER_BACKEND='opencl' if profile == 'mixed' else backend,
                QWEN3_TTS_ENCODER_FFT='1',
                QWEN3_TTS_MAX_VOCODER='1' if profile == 'htp' else '0',
                QWEN3_TTS_MAX_STRICT='1' if profile == 'htp' else '0',
                QWEN3_TTS_VALIDATE_AUDIO='1', QWEN3_TTS_VALIDATE_LOGITS='1')
+    if cli_nhvx is not None:
+        env['GGML_HEXAGON_NHVX'] = cli_nhvx
     trace_dir = ROOT / '.cache/npu-max/traces'
     trace_dir.mkdir(parents=True, exist_ok=True)
     import time

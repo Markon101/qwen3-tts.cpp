@@ -507,6 +507,19 @@ class Checks:
         capture, _ = self.invoke(args=('1.7b', '--text', 'Threads'), env={'GGML_HEXAGON_NHVX': value})
         assert capture['environment']['GGML_HEXAGON_NHVX'] == value
 
+    def cli_profile_flags(self, profile):
+        transformer = {'htp': 'hexagon', 'mixed': 'hexagon', 'cpu': 'cpu', 'opencl': 'opencl'}[profile]
+        for flag_seq in (('--profile', profile, '0.6b'), ('0.6b', '--profile', profile),
+                         ('0.6b', '--profile=' + profile), ('0.6b', '-p', profile), ('0.6b', '--' + profile)):
+            capture, _ = self.invoke(args=(*flag_seq, '--text', 'CLI profile test'))
+            env = capture['environment']
+            assert env['QWEN_NPU_MAX_PROFILE'] == profile
+            assert env['QWEN3_TTS_TRANSFORMER_BACKEND'] == transformer
+            assert env['QWEN3_TTS_ENCODER_BACKEND'] == transformer
+            assert env['QWEN3_TTS_DECODER_BACKEND'] == ('opencl' if profile == 'mixed' else transformer)
+            assert env['QWEN3_TTS_MAX_STRICT'] == env['QWEN3_TTS_MAX_VOCODER'] == ('1' if profile == 'htp' else '0')
+            assert '--profile' not in capture['argv'] and ('--' + profile) not in capture['argv']
+
     def dangerous_inherited_environment(self):
         inherited = dict(QWEN3_TTS_FORCE_CPU='1', GGML_PROFILE_OPS='1', GGML_OPENCL_QCOM_RECORD='1',
                          GGML_OPENCL_Q8_SMALL2='1', GGML_HEXAGON_OPSTAGE='1',
@@ -597,6 +610,10 @@ class Checks:
                        lambda v=value: self.invalid_environment('GGML_HEXAGON_NHVX', v))
         for value in ('1', '2', '3', '4', '5', '6'):
             self.check('accept NHVX ' + value, lambda v=value: self.valid_threads(v))
+        for profile in ('htp', 'mixed', 'cpu', 'opencl'):
+            self.check('accept CLI profile flags ' + profile, lambda p=profile: self.cli_profile_flags(p))
+        self.check('reject conflicting CLI profiles', lambda: self.reject(['--profile', 'htp', '--mixed', '--text', 'Conflict']))
+        self.check('reject invalid CLI profile', lambda: self.reject(['--profile', 'invalid', '--text', 'Invalid']))
         self.check('inherited diagnostic flags cleared and HTP selection enforced',
                    self.dangerous_inherited_environment)
         return self.results
