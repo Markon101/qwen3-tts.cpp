@@ -233,7 +233,7 @@ bool TTSTransformer::load_model(const std::string & model_path) {
                         struct ggml_tensor * p = ggml_graph_get_tensor(gf, "inp_pos");
                         if (t) ggml_backend_tensor_memset(t, 0, 0, ggml_nbytes(t));
                         if (p) ggml_backend_tensor_memset(p, 0, 0, ggml_nbytes(p));
-                        ggml_backend_sched_graph_compute(state_.sched, gf);
+                        audited_graph_compute("transformer", state_.sched, gf, &error_msg_);
                         ggml_backend_sched_reset(state_.sched);
                     }
                 }
@@ -245,7 +245,7 @@ bool TTSTransformer::load_model(const std::string & model_path) {
                     struct ggml_tensor * p = ggml_graph_get_tensor(gf, "inp_pos");
                     if (t) ggml_backend_tensor_memset(t, 0, 0, ggml_nbytes(t));
                     if (p) ggml_backend_tensor_memset(p, 0, 0, ggml_nbytes(p));
-                    ggml_backend_sched_graph_compute(state_.sched, gf);
+                    audited_graph_compute("transformer", state_.sched, gf, &error_msg_);
                     ggml_backend_sched_reset(state_.sched);
                 }
 
@@ -1215,13 +1215,13 @@ bool TTSTransformer::lookup_embedding_rows(struct ggml_tensor * embedding, const
     struct ggml_tensor * inp = ggml_graph_get_tensor(gf, input_name);
     ggml_backend_tensor_set(inp, token_ids, 0, n_tokens * sizeof(int32_t));
 
-    if (ggml_backend_sched_graph_compute(state_.sched, gf) != GGML_STATUS_SUCCESS) {
+    if (audited_graph_compute("embedding_lookup", state_.sched, gf, &error_msg_) != GGML_STATUS_SUCCESS) {
         error_msg_ = "Failed to compute embedding lookup graph";
         ggml_backend_sched_reset(state_.sched);
         ggml_free(ctx0);
         return false;
     }
-    ggml_backend_synchronize(state_.backend);
+    // Synchronous scheduler compute already synchronizes all backends.
 
     struct ggml_tensor * out = ggml_graph_get_tensor(gf, output_name);
     if (!out) {
@@ -1340,13 +1340,13 @@ bool TTSTransformer::project_text_tokens(const int32_t * text_tokens, int32_t n_
     struct ggml_tensor * inp = ggml_graph_get_tensor(gf, "inp_text_tokens");
     ggml_backend_tensor_set(inp, text_tokens, 0, n_tokens * sizeof(int32_t));
 
-    if (ggml_backend_sched_graph_compute(state_.sched, gf) != GGML_STATUS_SUCCESS) {
+    if (audited_graph_compute("text_projection", state_.sched, gf, &error_msg_) != GGML_STATUS_SUCCESS) {
         error_msg_ = "Failed to compute text projection graph";
         ggml_backend_sched_reset(state_.sched);
         ggml_free(ctx0);
         return false;
     }
-    ggml_backend_synchronize(state_.backend);
+    // Synchronous scheduler compute already synchronizes all backends.
 
     struct ggml_tensor * out = ggml_graph_get_tensor(gf, "text_proj_out");
     if (!out) {
@@ -2358,12 +2358,12 @@ bool TTSTransformer::forward_prefill(const float * prefill_embd, int32_t n_token
 #ifdef QWEN3_TTS_TIMING
     t0 = clk::now();
 #endif
-    if (ggml_backend_sched_graph_compute(state_.sched, gf) != GGML_STATUS_SUCCESS) {
+    if (audited_graph_compute("talker_prefill", state_.sched, gf, &error_msg_) != GGML_STATUS_SUCCESS) {
         error_msg_ = "Failed to compute graph";
         ggml_backend_sched_reset(state_.sched);
         return false;
     }
-    ggml_backend_synchronize(state_.backend);
+    // Synchronous scheduler compute already synchronizes all backends.
 #ifdef QWEN3_TTS_TIMING
     t1 = clk::now();
     if (timing_) timing_->t_prefill_compute_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -2512,12 +2512,12 @@ bool TTSTransformer::forward_step(const float * step_embd, int32_t n_past,
 #ifdef QWEN3_TTS_TIMING
     t0 = clk::now();
 #endif
-    if (ggml_backend_sched_graph_compute(state_.sched, gf) != GGML_STATUS_SUCCESS) {
+    if (audited_graph_compute("talker_step", state_.sched, gf, &error_msg_) != GGML_STATUS_SUCCESS) {
         error_msg_ = "Failed to compute graph";
         ggml_backend_sched_reset(state_.sched);
         return false;
     }
-    ggml_backend_synchronize(state_.backend);
+    // Synchronous scheduler compute already synchronizes all backends.
 #ifdef QWEN3_TTS_TIMING
     t1 = clk::now();
     if (timing_) timing_->t_talker_compute_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -2853,12 +2853,12 @@ bool TTSTransformer::predict_codes_autoregressive(const float * hidden, int32_t 
 #ifdef QWEN3_TTS_TIMING
         t0 = clk::now();
 #endif
-        if (ggml_backend_sched_graph_compute(state_.sched, gf) != GGML_STATUS_SUCCESS) {
+        if (audited_graph_compute("code_predictor_prefill", state_.sched, gf, &error_msg_) != GGML_STATUS_SUCCESS) {
             error_msg_ = "Failed to compute code predictor prefill graph";
             ggml_backend_sched_reset(state_.sched);
             return false;
         }
-    ggml_backend_synchronize(state_.backend);
+    // Synchronous scheduler compute already synchronizes all backends.
 #ifdef QWEN3_TTS_TIMING
         t1 = clk::now();
         if (timing_) timing_->t_code_pred_compute_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -2962,12 +2962,12 @@ bool TTSTransformer::predict_codes_autoregressive(const float * hidden, int32_t 
 #ifdef QWEN3_TTS_TIMING
         t0 = clk::now();
 #endif
-        if (ggml_backend_sched_graph_compute(state_.sched, gf) != GGML_STATUS_SUCCESS) {
+        if (audited_graph_compute("code_predictor_step", state_.sched, gf, &error_msg_) != GGML_STATUS_SUCCESS) {
             error_msg_ = "Failed to compute code predictor step graph";
             ggml_backend_sched_reset(state_.sched);
             return false;
         }
-    ggml_backend_synchronize(state_.backend);
+    // Synchronous scheduler compute already synchronizes all backends.
 #ifdef QWEN3_TTS_TIMING
         t1 = clk::now();
         if (timing_) timing_->t_code_pred_compute_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -3435,6 +3435,13 @@ bool TTSTransformer::generate(const int32_t * text_tokens, int32_t n_tokens,
         
         for (int cb = 0; cb < cfg.n_codebooks; ++cb) {
             output.push_back(frame_codes[cb]);
+        }
+        if (frame_cb_ && !frame_cb_(frame_codes.data(), cfg.n_codebooks)) {
+            error_msg_ = "Complete-frame callback failed";
+#ifdef QWEN3_TTS_TIMING
+            timing_ = nullptr;
+#endif
+            return false;
         }
 
 #ifdef QWEN3_TTS_TIMING
@@ -3927,6 +3934,13 @@ bool TTSTransformer::generate_icl(
         }
         for (int cb = 1; cb < cfg.n_codebooks; ++cb) frame_codes[cb] = codes_1_15[cb - 1];
         for (int cb = 0; cb < cfg.n_codebooks; ++cb) output.push_back(frame_codes[cb]);
+        if (frame_cb_ && !frame_cb_(frame_codes.data(), cfg.n_codebooks)) {
+            error_msg_ = "Complete-frame callback failed";
+#ifdef QWEN3_TTS_TIMING
+            timing_ = nullptr;
+#endif
+            return false;
+        }
 
         if (frame + 1 >= max_len) break;
 
@@ -4057,6 +4071,13 @@ bool TTSTransformer::generate_from_prefill(
         }
         for (int cb = 1; cb < cfg.n_codebooks; ++cb) frame_codes[cb] = codes_1_15[cb-1];
         for (int cb = 0; cb < cfg.n_codebooks; ++cb) output.push_back(frame_codes[cb]);
+        if (frame_cb_ && !frame_cb_(frame_codes.data(), cfg.n_codebooks)) {
+            error_msg_ = "Complete-frame callback failed";
+#ifdef QWEN3_TTS_TIMING
+            timing_ = nullptr;
+#endif
+            return false;
+        }
 
         if (frame + 1 >= max_len) break;
 

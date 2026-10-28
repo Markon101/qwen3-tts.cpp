@@ -1,0 +1,6 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+W=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+export QWEN_MODELS_DIR=${QWEN_MODELS_DIR:-"$W/models"}
+export QWEN_NPU_OUTPUT=${QWEN_NPU_OUTPUT:-"$W/npu-max-test.wav"}
+exec sh "$W/repos/Markon101-qwen3-tts.cpp/npu-max.sh" "$@"

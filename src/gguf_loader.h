@@ -80,6 +80,13 @@ bool load_tensor_data_from_file(
 // A named requested device returns nullptr if unavailable, without CPU fallback.
 ggml_backend_t init_preferred_backend(const char * component_name, std::string * error_msg);
 
+// Experimental execution audit. Called after graph allocation; metadata-only
+// views do not count as CPU compute. Strict mode rejects non-HTP compute.
+bool audit_graph_placement(const char * component, ggml_backend_sched_t sched,
+                           ggml_cgraph * graph, std::string * error_msg);
+enum ggml_status audited_graph_compute(const char * component, ggml_backend_sched_t sched,
+                                       ggml_cgraph * graph, std::string * error_msg);
+
 // Release a backend obtained from init_preferred_backend().
 // Uses release_preferred_backend() instead of ggml_backend_free() to correctly
 // handle GPU backend lifecycle (some backends require a different teardown path).

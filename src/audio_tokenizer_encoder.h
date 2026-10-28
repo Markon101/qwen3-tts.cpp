@@ -27,6 +27,18 @@ struct speaker_encoder_config {
     float f_max = 12000.0f;
 };
 
+// Shared inference kernels exposed for deterministic CPU/HTP parity controls.
+// These do not select or initialize any backend.
+namespace speaker_encoder_detail {
+bool compute_mel_spectrogram(const speaker_encoder_config & config,
+                             const float * samples, int32_t n_samples,
+                             std::vector<float> & mel, int32_t & n_frames,
+                             std::string & error_msg, bool use_fft);
+struct ggml_tensor * lowered_conv1d(struct ggml_context * ctx,
+                                   struct ggml_tensor * w, struct ggml_tensor * x,
+                                   int stride, int dilation);
+}
+
 // Res2Net block weights
 struct res2net_block {
     // TDNN1: 1x1 conv (512 -> 512)
@@ -89,6 +101,7 @@ struct speaker_encoder_state {
     ggml_backend_t backend_cpu = nullptr;
     ggml_backend_sched_t sched = nullptr;
     std::vector<uint8_t> compute_meta;
+    bool lower_convolutions = false;
 };
 
 // Speaker encoder class (ECAPA-TDNN)

@@ -153,6 +153,13 @@ struct audio_decoder_state {
     std::vector<uint8_t> compute_meta;
     struct ggml_threadpool * threadpool = nullptr;
     int32_t                  threadpool_n = 0;
+    // Opt-in NPU-Max graph lowering. Original GGUF tensors remain untouched.
+    bool max_graph = false;
+    ggml_context * max_ctx = nullptr;
+    ggml_backend_buffer_t max_buffer = nullptr;
+    std::map<const ggml_tensor *, std::vector<ggml_tensor *>> max_taps;
+    std::map<const ggml_tensor *, ggml_tensor *> max_snake;
+
 };
 
 // Audio tokenizer decoder (vocoder) class
@@ -204,7 +211,8 @@ private:
                                               struct ggml_tensor * x,
                                               const pre_tfm_layer & layer,
                                               int32_t n_frames,
-                                              struct ggml_tensor * positions);
+                                              struct ggml_tensor * positions,
+                                              struct ggml_tensor * causal_mask = nullptr);
     
     // Apply upsample block (ConvNeXt-style)
     struct ggml_tensor * apply_upsample_block(struct ggml_context * ctx,
@@ -224,6 +232,14 @@ private:
                                               int upsample_rate);
     
     void normalize_codebooks();
+    bool prepare_max_weights();
+    ggml_tensor * max_conv(ggml_context * ctx, ggml_tensor * weight,
+                           ggml_tensor * x, int dilation = 1);
+    ggml_tensor * max_transpose_conv(ggml_context * ctx, ggml_tensor * weight,
+                                     ggml_tensor * x, int stride);
+    ggml_tensor * max_depthwise_conv(ggml_context * ctx, ggml_tensor * weight,
+                                     ggml_tensor * x);
+
     
     audio_decoder_model model_;
     audio_decoder_state state_;

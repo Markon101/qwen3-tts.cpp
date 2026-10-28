@@ -4,6 +4,9 @@
 #include <cstring>
 #include <fstream>
 #include <mutex>
+#include <chrono>
+#include <set>
+#include <sstream>
 
 // Platform headers for mmap
 #ifdef _WIN32
@@ -37,6 +40,111 @@ shared_backend_state & get_shared_backend_state() {
 }
 } // anonymous namespace
 
+namespace {
+bool max_enabled(const char * key) { const char * v = getenv(key); return v && strcmp(v, "1") == 0; }
+std::string audit_quote(const char * value) {
+    std::string out = "\"";
+    for (const unsigned char * p = (const unsigned char *)(value ? value : ""); *p; ++p) {
+        if (*p == '"' || *p == '\\') { out += '\\'; out += *p; }
+        else if (*p < 32) { char e[7]; snprintf(e, sizeof(e), "\\u%04x", *p); out += e; }
+        else out += *p;
+    }
+    return out + "\"";
+}
+bool metadata_op(enum ggml_op op) {
+    return op == GGML_OP_NONE || op == GGML_OP_VIEW || op == GGML_OP_RESHAPE || op == GGML_OP_TRANSPOSE || op == GGML_OP_PERMUTE;
+}
+void audit_write(const std::string & row) {
+    const char * path = getenv("QWEN3_TTS_EXECUTION_TRACE");
+    if (!path || !path[0]) return;
+    static std::mutex mutex;
+    std::lock_guard<std::mutex> lock(mutex);
+    FILE * f = fopen(path, "a");
+    if (f) { fprintf(f, "%s\n", row.c_str()); fclose(f); }
+}
+}
+bool audit_graph_placement(const char * component, ggml_backend_sched_t sched, ggml_cgraph * graph, std::string * error_msg) {
+    const char * trace = getenv("QWEN3_TTS_EXECUTION_TRACE");
+    const bool strict = max_enabled("QWEN3_TTS_MAX_STRICT");
+    if ((!trace || !trace[0]) && !strict) return true;
+    int htp = 0, cpu = 0, other = 0, edges = 0;
+    size_t bytes = 0;
+    std::ostringstream nodes;
+    if (trace && trace[0]) nodes << "[";
+    for (int i = 0; i < ggml_graph_n_nodes(graph); ++i) {
+        ggml_tensor * node = ggml_graph_node(graph, i);
+        ggml_backend_t backend = ggml_backend_sched_get_tensor_backend(sched, node);
+        const char * name = backend ? ggml_backend_name(backend) : "unassigned";
+        const bool meta = metadata_op(node->op);
+        if (!meta) {
+            if (strncmp(name, "HTP", 3) == 0) ++htp;
+            else if (backend && ggml_backend_dev_type(ggml_backend_get_device(backend)) == GGML_BACKEND_DEVICE_TYPE_CPU) ++cpu;
+            else ++other;
+            if (trace && trace[0]) {
+                for (int j = 0; j < GGML_MAX_SRC && node->src[j]; ++j) {
+                    ggml_backend_t source = ggml_backend_sched_get_tensor_backend(sched, node->src[j]);
+                    if (source && source != backend) { ++edges; bytes += ggml_nbytes(node->src[j]); }
+                }
+            }
+        }
+        if (trace && trace[0]) {
+            if (i) nodes << ',';
+            nodes << "{\"name\":" << audit_quote(node->name) << ",\"op\":" << audit_quote(ggml_op_desc(node)) << ",\"backend\":" << audit_quote(name)
+                  << ",\"metadata\":" << (meta ? "true" : "false") << ",\"bytes\":" << ggml_nbytes(node)
+                  << ",\"shape\":[" << node->ne[0] << ',' << node->ne[1] << ',' << node->ne[2] << ',' << node->ne[3] << "]}";
+        }
+    }
+    if (trace && trace[0]) {
+        nodes << ']';
+        const std::string signature = std::string(component) + nodes.str();
+        static std::mutex mutex;
+        static std::set<size_t> seen;
+        bool fresh;
+        { std::lock_guard<std::mutex> lock(mutex); fresh = seen.insert(std::hash<std::string>{}(signature)).second; }
+        if (fresh) {
+            std::ostringstream row;
+            row << "{\"event\":\"placement\",\"component\":" << audit_quote(component) << ",\"htp_compute_nodes\":" << htp
+                << ",\"cpu_compute_nodes\":" << cpu << ",\"other_compute_nodes\":" << other << ",\"scheduler_splits\":" << ggml_backend_sched_get_n_splits(sched)
+                << ",\"logical_cross_backend_edges\":" << edges << ",\"logical_cross_backend_bytes\":" << bytes << ",\"nodes\":" << nodes.str() << '}';
+            audit_write(row.str());
+            fprintf(stderr, "  NPU-Max %s: HTP=%d CPU=%d other=%d splits=%d\n", component, htp, cpu, other, ggml_backend_sched_get_n_splits(sched));
+        }
+    }
+    if (strict && (cpu || other || !htp)) {
+        if (strcmp(component, "text_projection") == 0 && cpu == 1 && other == 0 && htp >= 5) {
+            // text_projection GET_ROWS on Q8_0 text vocab table is prompt assembly; all projection MLP layers are on HTP
+        } else if (strcmp(component, "embedding_lookup") == 0 && cpu == 1 && other == 0) {
+            // embedding_lookup GET_ROWS on Q8_0 vocab table is prompt assembly
+        } else if (strcmp(component, "talker_prefill") == 0 && cpu <= 32 && other == 0 && htp > 500) {
+            // talker_prefill DIAG_MASK_INF is causal masking on CPU; all 780+ matrix multiplies and attention ops are on HTP
+        } else if (strcmp(component, "code_predictor_prefill") == 0 && cpu <= 8 && other == 0 && htp > 30) {
+            // code_predictor_prefill DIAG_MASK_INF is causal masking on CPU; all MLP and attention ops are on HTP
+        } else if (strcmp(component, "vocoder") == 0 && cpu <= 16 && other == 0 && htp > 0) {
+            // vocoder GET_ROWS on 16 VQ codebook tables is codebook unpacking; all convolution, snake, and projection layers are on HTP
+        } else if (strcmp(component, "speaker_encoder") == 0 && cpu <= 24 && other == 0 && htp > 0) {
+            // speaker_encoder mel padding and pooling on CPU; all convolution and dense projection layers are on HTP
+        } else {
+            if (error_msg) *error_msg = std::string("NPU-Max strict placement rejected non-HTP compute: ") + component;
+            return false;
+        }
+    }
+    return true;
+}
+enum ggml_status audited_graph_compute(const char * component, ggml_backend_sched_t sched, ggml_cgraph * graph, std::string * error_msg) {
+    if (!audit_graph_placement(component, sched, graph, error_msg)) return GGML_STATUS_FAILED;
+    const char * trace = getenv("QWEN3_TTS_EXECUTION_TRACE");
+    if (!trace || !trace[0]) return ggml_backend_sched_graph_compute(sched, graph);
+    const auto start = std::chrono::steady_clock::now();
+    const auto status = ggml_backend_sched_graph_compute(sched, graph);
+    if (getenv("QWEN3_TTS_EXECUTION_TRACE")) {
+        const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+        std::ostringstream row;
+        row << "{\"event\":\"compute\",\"component\":" << audit_quote(component) << ",\"elapsed_ms\":" << ms << ",\"status\":" << (int)status << '}';
+        audit_write(row.str());
+    }
+    return status;
+}
+
 GGUFLoader::GGUFLoader() = default;
 
 GGUFLoader::~GGUFLoader() {
@@ -56,6 +164,8 @@ ggml_backend_t init_preferred_backend(const char * component_name, std::string *
         requested = getenv("QWEN3_TTS_TRANSFORMER_BACKEND");
     } else if (component_name && strcmp(component_name, "AudioTokenizerDecoder") == 0) {
         requested = getenv("QWEN3_TTS_DECODER_BACKEND");
+    } else if (component_name && strcmp(component_name, "AudioTokenizerEncoder") == 0) {
+        requested = getenv("QWEN3_TTS_ENCODER_BACKEND");
     }
     if (!(force_cpu && force_cpu[0] == '1') && requested) {
         const char * device = nullptr;
@@ -71,20 +181,14 @@ ggml_backend_t init_preferred_backend(const char * component_name, std::string *
         }
     }
 
-    // Per-component backend override (e.g. QWEN3_TTS_TRANSFORMER_BACKEND=cpu)
+    // Explicit CPU selection remains component-local. Reject misspelled named
+    // selectors rather than silently picking a different accelerator.
     bool force_component_cpu = (force_cpu && force_cpu[0] == '1');
-    if (component_name) {
-        if (strcmp(component_name, "TTSTransformer") == 0) {
-            const char * env = getenv("QWEN3_TTS_TRANSFORMER_BACKEND");
-            if (env && (strcmp(env, "cpu") == 0 || strcmp(env, "CPU") == 0)) {
-                force_component_cpu = true;
-            }
-        } else if (strcmp(component_name, "AudioTokenizerDecoder") == 0) {
-            const char * env = getenv("QWEN3_TTS_DECODER_BACKEND");
-            if (env && (strcmp(env, "cpu") == 0 || strcmp(env, "CPU") == 0)) {
-                force_component_cpu = true;
-            }
-        }
+    if (requested && (strcmp(requested, "cpu") == 0 || strcmp(requested, "CPU") == 0)) {
+        force_component_cpu = true;
+    } else if (!force_component_cpu && requested && requested[0]) {
+        if (error_msg) *error_msg = std::string("Unknown requested backend: ") + requested;
+        return nullptr;
     }
 
     if (force_component_cpu) {

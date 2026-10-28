@@ -384,6 +384,14 @@ public:
     void set_logits_callback(logits_cb_t cb) { logits_cb_ = std::move(cb); }
     void clear_logits_callback() { logits_cb_ = nullptr; }
 
+    // Experimental complete-frame stream. Callback runs synchronously on the
+    // generation thread; copy its transient row before returning. False fails
+    // generation. No callback means the original execution path.
+    using frame_cb_t = std::function<bool(const int32_t *, int32_t)>;
+    void set_frame_callback(frame_cb_t cb) { frame_cb_ = std::move(cb); }
+    void clear_frame_callback() { frame_cb_ = nullptr; }
+
+
     // Abort callback — cancels the current graph compute mid-flight.
     // callback returns true → abort. Pass nullptr to clear.
     void set_abort_callback(ggml_abort_callback cb, void * userdata) {
@@ -507,6 +515,7 @@ private:
     bool skip_ggml_code_pred_layers_ = false;
 
     // Optional per-frame logits callback (set via set_logits_callback)
+    frame_cb_t frame_cb_ = nullptr;
     logits_cb_t logits_cb_;
 
     // Extended sampling parameters — set by qwen3_tts.cpp before calling generate().

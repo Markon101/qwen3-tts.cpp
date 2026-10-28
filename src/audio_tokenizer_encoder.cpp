@@ -7,6 +7,7 @@ static constexpr float k_pi = 3.14159265358979323846f;
 #include <cstring>
 #include <algorithm>
 #include <numeric>
+#include <cstdlib>
 
 #define QWEN3_TTS_MAX_NODES 16384
 
@@ -108,6 +109,48 @@ static void compute_dft(const float * input, float * real, float * imag, int n) 
             real[k] += input[t] * cosf(angle);
             imag[k] += input[t] * sinf(angle);
         }
+    }
+}
+
+// Iterative radix-2 FFT for the optional CPU mel frontend. Double work buffers
+// reduce low-energy-bin phase/rounding error; the model-facing spectrum stays F32. Non-power-of-two
+// configurations retain the original DFT implementation.
+static void compute_fft(const float * input, float * real, float * imag, int n,
+                        std::vector<double> & work_real, std::vector<double> & work_imag) {
+    if (n <= 0 || (n & (n - 1))) {
+        compute_dft(input, real, imag, n);
+        return;
+    }
+    work_real.resize(n);
+    work_imag.assign(n, 0.0);
+    for (int i = 0, j = 0; i < n; ++i) {
+        work_real[j] = input[i];
+        int bit = n >> 1;
+        while (bit && (j & bit)) { j ^= bit; bit >>= 1; }
+        j ^= bit;
+    }
+    constexpr double pi = 3.141592653589793238462643383279502884;
+    for (int width = 2; width <= n; width <<= 1) {
+        const double angle = -2.0 * pi / width;
+        const double step_real = cos(angle), step_imag = sin(angle);
+        for (int base = 0; base < n; base += width) {
+            double wr = 1, wi = 0;
+            for (int k = 0; k < width / 2; ++k) {
+                const int left = base + k, right = left + width / 2;
+                const double tr = wr * work_real[right] - wi * work_imag[right];
+                const double ti = wr * work_imag[right] + wi * work_real[right];
+                const double lr = work_real[left], li = work_imag[left];
+                work_real[left] = (lr + tr); work_imag[left] = (li + ti);
+                work_real[right] = (lr - tr); work_imag[right] = (li - ti);
+                const double next_wr = wr * step_real - wi * step_imag;
+                wi = wr * step_imag + wi * step_real;
+                wr = next_wr;
+            }
+        }
+    }
+    for (int i = 0; i < n; ++i) {
+        real[i] = (float)work_real[i];
+        imag[i] = (float)work_imag[i];
     }
 }
 
@@ -251,11 +294,6 @@ bool AudioTokenizerEncoder::load_model(const std::string & model_path) {
         }
     }
     
-    if (!load_tensor_data_from_file(model_path, gguf_ctx, model_.ctx, 
-                                     model_.tensors, model_.buffer, error_msg_)) {
-        return false;
-    }
-    
     state_.backend = init_preferred_backend("AudioTokenizerEncoder", &error_msg_);
     if (!state_.backend) {
         return false;
@@ -263,6 +301,19 @@ bool AudioTokenizerEncoder::load_model(const std::string & model_path) {
     ggml_backend_dev_t device = ggml_backend_get_device(state_.backend);
     const char * device_name = device ? ggml_backend_dev_name(device) : "Unknown";
     fprintf(stderr, "  AudioTokenizerEncoder backend: %s\n", device_name);
+    // Opt-in lowering also works with CPU for an independent numerical control.
+    const char * lowering = getenv("QWEN3_TTS_ENCODER_LOWERING");
+    state_.lower_convolutions = (lowering && strcmp(lowering, "1") == 0) ||
+                                strcmp(device_name, "HTP0") == 0;
+    if (!load_tensor_data_from_file(model_path, gguf_ctx, model_.ctx,
+                                   model_.tensors, model_.buffer, error_msg_,
+                                   GGML_BACKEND_DEVICE_TYPE_CPU,
+                                   state_.lower_convolutions ? state_.backend : nullptr)) {
+        return false;
+    }
+    if (state_.lower_convolutions) {
+        fprintf(stderr, "  Speaker encoder: tiled weight-first convolution lowering enabled\n");
+    }
     
     if (device && ggml_backend_dev_type(device) != GGML_BACKEND_DEVICE_TYPE_CPU) {
         state_.backend_cpu = ggml_backend_init_by_type(GGML_BACKEND_DEVICE_TYPE_CPU, nullptr);
@@ -288,9 +339,14 @@ bool AudioTokenizerEncoder::load_model(const std::string & model_path) {
     return true;
 }
 
-bool AudioTokenizerEncoder::compute_mel_spectrogram(const float * samples, int32_t n_samples,
-                                                     std::vector<float> & mel, int32_t & n_frames) {
-    const auto & cfg = model_.config;
+bool speaker_encoder_detail::compute_mel_spectrogram(const speaker_encoder_config & cfg,
+                                                     const float * samples, int32_t n_samples,
+                                                     std::vector<float> & mel, int32_t & n_frames,
+                                                     std::string & error_msg, bool use_fft) {
+    if (!samples || n_samples <= 0) {
+        error_msg = "Audio samples are empty";
+        return false;
+    }
     
     // Match PyTorch STFT padding: (n_fft - hop_size) // 2 on each side with reflect
     int padding = (cfg.n_fft - cfg.hop_length) / 2;
@@ -316,7 +372,7 @@ bool AudioTokenizerEncoder::compute_mel_spectrogram(const float * samples, int32
     // With center=False, frames start at 0 and step by hop_length
     n_frames = (padded_length - cfg.n_fft) / cfg.hop_length + 1;
     if (n_frames <= 0) {
-        error_msg_ = "Audio too short for mel spectrogram";
+        error_msg = "Audio too short for mel spectrogram";
         return false;
     }
     
@@ -339,6 +395,7 @@ bool AudioTokenizerEncoder::compute_mel_spectrogram(const float * samples, int32
     std::vector<float> fft_real(cfg.n_fft);
     std::vector<float> fft_imag(cfg.n_fft);
     std::vector<float> magnitude(n_fft_bins);
+    std::vector<double> fft_work_real, fft_work_imag;
     
     for (int32_t f = 0; f < n_frames; ++f) {
         int start = f * cfg.hop_length;
@@ -348,7 +405,9 @@ bool AudioTokenizerEncoder::compute_mel_spectrogram(const float * samples, int32
             frame[i] = padded[start + i] * window[i];
         }
         
-        compute_dft(frame.data(), fft_real.data(), fft_imag.data(), cfg.n_fft);
+        if (use_fft) compute_fft(frame.data(), fft_real.data(), fft_imag.data(), cfg.n_fft,
+                                 fft_work_real, fft_work_imag);
+        else compute_dft(frame.data(), fft_real.data(), fft_imag.data(), cfg.n_fft);
         
         // Compute magnitude (not power) - matches torch.stft with return_complex=True then abs()
         // spec = torch.sqrt(torch.view_as_real(spec).pow(2).sum(-1) + 1e-9)
@@ -370,6 +429,14 @@ bool AudioTokenizerEncoder::compute_mel_spectrogram(const float * samples, int32
     }
     
     return true;
+}
+
+bool AudioTokenizerEncoder::compute_mel_spectrogram(const float * samples, int32_t n_samples,
+                                                     std::vector<float> & mel, int32_t & n_frames) {
+    const char * option = getenv("QWEN3_TTS_ENCODER_FFT");
+    const bool use_fft = option && strcmp(option, "1") == 0;
+    return speaker_encoder_detail::compute_mel_spectrogram(model_.config, samples,
+                n_samples, mel, n_frames, error_msg_, use_fft);
 }
 
 static struct ggml_tensor * apply_reflect_pad_1d(struct ggml_context * ctx,
@@ -421,13 +488,58 @@ static struct ggml_tensor * apply_reflect_pad_1d(struct ggml_context * ctx,
     return padded;
 }
 
+// HTP has no IM2COL kernel. Express im2col with strided views, concat and
+// contiguous permutation, then use resident model weights as MUL_MAT src0.
+// Tiling time keeps each matrix RHS within HTP's 1024-row support bound.
+// Explicit F16 roundtrip retains the original ggml_conv_1d input rounding.
+struct ggml_tensor * speaker_encoder_detail::lowered_conv1d(struct ggml_context * ctx,
+                                          struct ggml_tensor * w,
+                                          struct ggml_tensor * x,
+                                          int stride, int dilation) {
+    GGML_ASSERT(x->ne[2] == 1 && x->ne[3] == 1);
+    const int64_t kernel = w->ne[0], channels = w->ne[1];
+    const int64_t outputs = (x->ne[0] - dilation * (kernel - 1) - 1) / stride + 1;
+    struct ggml_tensor * weights = ggml_reshape_2d(ctx, w, kernel * channels, w->ne[2]);
+    struct ggml_tensor * all = nullptr;
+    for (int64_t start = 0; start < outputs; start += 1024) {
+        const int64_t count = std::min<int64_t>(1024, outputs - start);
+        struct ggml_tensor * patches = nullptr;
+        for (int64_t k = 0; k < kernel; ++k) {
+            struct ggml_tensor * slice = ggml_view_3d(ctx, x, count, channels, 1,
+                x->nb[1], x->nb[2], (start * stride + k * dilation) * x->nb[0]);
+            // Speaker convolutions currently use stride=1. Keeping an explicit
+            // stride assertion prevents a future caller silently misindexing.
+            GGML_ASSERT(stride == 1);
+            slice = ggml_cont(ctx, slice);
+            patches = patches ? ggml_concat(ctx, patches, slice, 2) : slice;
+        }
+        // [time, channel, kernel] -> [kernel, channel, time]. Kernel is
+        // innermost in the canonical GGUF convolution weight row.
+        patches = ggml_cont(ctx, ggml_permute(ctx, patches, 2, 1, 0, 3));
+        patches = ggml_reshape_2d(ctx, patches, kernel * channels, count);
+        patches = ggml_cast(ctx, ggml_cast(ctx, patches, GGML_TYPE_F16), GGML_TYPE_F32);
+        struct ggml_tensor * tile = ggml_mul_mat(ctx, weights, patches);
+        tile = ggml_cont(ctx, ggml_transpose(ctx, tile));
+        tile = ggml_reshape_3d(ctx, tile, count, w->ne[2], 1);
+        all = all ? ggml_concat(ctx, all, tile, 0) : tile;
+    }
+    return all;
+}
+
+static struct ggml_tensor * temporal_mean(struct ggml_context * ctx,
+                                         struct ggml_tensor * x, bool lower) {
+    if (!lower) return ggml_pool_1d(ctx, x, GGML_OP_POOL_AVG, x->ne[0], x->ne[0], 0);
+    return ggml_scale(ctx, ggml_sum_rows(ctx, x), 1.0f / (float)x->ne[0]);
+}
+
 static struct ggml_tensor * apply_conv1d(struct ggml_context * ctx,
                                           struct ggml_tensor * w,
                                           struct ggml_tensor * b,
                                           struct ggml_tensor * x,
                                           int stride, int pad, int dilation,
                                           const char * debug_name = nullptr,
-                                          bool use_reflect_pad = true) {
+                                          bool use_reflect_pad = true,
+                                          bool lower = false) {
     struct ggml_tensor * input = x;
     int actual_pad = pad;
     
@@ -436,7 +548,9 @@ static struct ggml_tensor * apply_conv1d(struct ggml_context * ctx,
         actual_pad = 0;
     }
     
-    struct ggml_tensor * y = ggml_conv_1d(ctx, w, input, stride, actual_pad, dilation);
+    GGML_ASSERT(!lower || actual_pad == 0);
+    struct ggml_tensor * y = lower ? speaker_encoder_detail::lowered_conv1d(ctx, w, input, stride, dilation)
+                                  : ggml_conv_1d(ctx, w, input, stride, actual_pad, dilation);
     if (debug_name) {
         char name[64];
         snprintf(name, sizeof(name), "%s_conv", debug_name);
@@ -454,6 +568,12 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
     const int hidden_dim = cfg.hidden_dim;  // 512
     const int scale = cfg.res2net_scale;    // 8
     const int branch_dim = hidden_dim / scale;  // 64
+    auto conv = [&](struct ggml_context * ctx, struct ggml_tensor * w,
+                    struct ggml_tensor * b, struct ggml_tensor * x,
+                    int stride, int pad, int dilation) {
+        return apply_conv1d(ctx, w, b, x, stride, pad, dilation, nullptr, true,
+                            state_.lower_convolutions);
+    };
     
     struct ggml_init_params params = {
         /*.mem_size   =*/ state_.compute_meta.size(),
@@ -480,7 +600,8 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
      struct ggml_tensor * mel_padded = apply_reflect_pad_1d(ctx0, cur, 2);
      ggml_set_name(mel_padded, "mel_padded");
     
-     cur = ggml_conv_1d(ctx0, model_.conv0_w, mel_padded, 1, 0, 1);
+     cur = state_.lower_convolutions ? speaker_encoder_detail::lowered_conv1d(ctx0, model_.conv0_w, mel_padded, 1, 1)
+                                     : ggml_conv_1d(ctx0, model_.conv0_w, mel_padded, 1, 0, 1);
      ggml_set_name(cur, "conv0_conv");
 
      if (model_.conv0_b) {
@@ -507,7 +628,7 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
         
         struct ggml_tensor * residual = cur;
         
-         cur = apply_conv1d(ctx0, block.tdnn1_w, block.tdnn1_b, cur, 1, 0, 1);
+         cur = conv(ctx0, block.tdnn1_w, block.tdnn1_b, cur, 1, 0, 1);
          cur = ggml_relu(ctx0, cur);
          if (blk == 0) {
              ggml_set_name(cur, "blk1_tdnn1");
@@ -552,7 +673,7 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
             // Apply conv with dilation (kernel=3)
             // Padding for kernel=3, dilation=d: pad = d * (3-1) / 2 = d
             if (block.res2net_w[b - 1]) {
-                outputs[b] = apply_conv1d(ctx0, block.res2net_w[b - 1], block.res2net_b[b - 1], 
+                outputs[b] = conv(ctx0, block.res2net_w[b - 1], block.res2net_b[b - 1],
                                           input, 1, dilation, dilation);
                 outputs[b] = ggml_relu(ctx0, outputs[b]);
             } else {
@@ -573,7 +694,7 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
              }
          }
         
-         cur = apply_conv1d(ctx0, block.tdnn2_w, block.tdnn2_b, cur, 1, 0, 1);
+         cur = conv(ctx0, block.tdnn2_w, block.tdnn2_b, cur, 1, 0, 1);
          cur = ggml_relu(ctx0, cur);
          if (blk == 0) {
              ggml_set_name(cur, "blk1_tdnn2");
@@ -581,15 +702,15 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
          
          // SE (Squeeze-Excitation)
          // Global average pooling over time: mean(dim=2, keepdim=True)
-         struct ggml_tensor * se = ggml_pool_1d(ctx0, cur, GGML_OP_POOL_AVG, seq_len, seq_len, 0);
+         struct ggml_tensor * se = temporal_mean(ctx0, cur, state_.lower_convolutions);
          se = ggml_reshape_3d(ctx0, se, 1, hidden_dim, 1);
          
          // SE conv1: 512 -> 128 with ReLU
-         se = apply_conv1d(ctx0, block.se_conv1_w, block.se_conv1_b, se, 1, 0, 1);
+         se = conv(ctx0, block.se_conv1_w, block.se_conv1_b, se, 1, 0, 1);
          se = ggml_relu(ctx0, se);
          
          // SE conv2: 128 -> 512 with Sigmoid
-         se = apply_conv1d(ctx0, block.se_conv2_w, block.se_conv2_b, se, 1, 0, 1);
+         se = conv(ctx0, block.se_conv2_w, block.se_conv2_b, se, 1, 0, 1);
          se = ggml_sigmoid(ctx0, se);
          
          cur = ggml_mul(ctx0, cur, se);
@@ -615,7 +736,7 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
      ggml_set_name(mfa_input, "mfa_input");
      
      // MFA conv: 1536 -> 1536 with ReLU
-     cur = apply_conv1d(ctx0, model_.mfa_w, model_.mfa_b, mfa_input, 1, 0, 1);
+     cur = conv(ctx0, model_.mfa_w, model_.mfa_b, mfa_input, 1, 0, 1);
      cur = ggml_relu(ctx0, cur);
      ggml_set_name(cur, "mfa_out");
     
@@ -624,12 +745,12 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
     
     // Step 1: Compute global mean and std over time
     // mean = hidden_states.mean(dim=2, keepdim=True)  # [1, hidden_dim*3, 1]
-    struct ggml_tensor * global_mean = ggml_pool_1d(ctx0, cur, GGML_OP_POOL_AVG, seq_len, seq_len, 0);
+    struct ggml_tensor * global_mean = temporal_mean(ctx0, cur, state_.lower_convolutions);
     global_mean = ggml_reshape_3d(ctx0, global_mean, 1, hidden_dim * 3, 1);
     
     // std = sqrt(E[x^2] - E[x]^2)
     struct ggml_tensor * sq = ggml_sqr(ctx0, cur);
-    struct ggml_tensor * mean_sq = ggml_pool_1d(ctx0, sq, GGML_OP_POOL_AVG, seq_len, seq_len, 0);
+    struct ggml_tensor * mean_sq = temporal_mean(ctx0, sq, state_.lower_convolutions);
     mean_sq = ggml_reshape_3d(ctx0, mean_sq, 1, hidden_dim * 3, 1);
     struct ggml_tensor * var = ggml_sub(ctx0, mean_sq, ggml_sqr(ctx0, global_mean));
     var = ggml_clamp(ctx0, var, 1e-12f, 1e10f);
@@ -651,14 +772,14 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
      // Step 3: TDNN (4608 -> 128) with ReLU, then Tanh
      // self.tdnn = TimeDelayNetBlock(channels * 3, attention_channels, 1, 1)  # has ReLU
      // attention = self.conv(self.tanh(self.tdnn(attention)))
-     attention = apply_conv1d(ctx0, model_.asp_tdnn_w, model_.asp_tdnn_b, attention, 1, 0, 1);
+     attention = conv(ctx0, model_.asp_tdnn_w, model_.asp_tdnn_b, attention, 1, 0, 1);
      attention = ggml_relu(ctx0, attention);  // TDNN has ReLU
      ggml_set_name(attention, "asp_tdnn");
      attention = ggml_tanh(ctx0, attention);  // Then tanh is applied
      
      // Step 4: Conv (128 -> 1536) for attention weights
      // self.conv = nn.Conv1d(attention_channels, channels, kernel_size=1)
-     attention = apply_conv1d(ctx0, model_.asp_conv_w, model_.asp_conv_b, attention, 1, 0, 1);
+     attention = conv(ctx0, model_.asp_conv_w, model_.asp_conv_b, attention, 1, 0, 1);
      ggml_set_name(attention, "asp_conv");
      // attention shape: [seq_len, 1536, 1]
      
@@ -670,7 +791,7 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
     // mean, std = self._compute_statistics(hidden_states, attention)
     // mean = (attention * hidden_states).sum(dim=2)
     struct ggml_tensor * weighted = ggml_mul(ctx0, attention, cur);
-    struct ggml_tensor * weighted_mean = ggml_pool_1d(ctx0, weighted, GGML_OP_POOL_AVG, seq_len, seq_len, 0);
+    struct ggml_tensor * weighted_mean = temporal_mean(ctx0, weighted, state_.lower_convolutions);
     weighted_mean = ggml_scale(ctx0, weighted_mean, (float)seq_len);  // Convert avg to sum
     weighted_mean = ggml_reshape_3d(ctx0, weighted_mean, 1, hidden_dim * 3, 1);
     
@@ -680,7 +801,7 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
     struct ggml_tensor * diff = ggml_sub(ctx0, cur, mean_for_std);
     struct ggml_tensor * diff_sq = ggml_sqr(ctx0, diff);
     struct ggml_tensor * weighted_var = ggml_mul(ctx0, attention, diff_sq);
-    struct ggml_tensor * var_sum = ggml_pool_1d(ctx0, weighted_var, GGML_OP_POOL_AVG, seq_len, seq_len, 0);
+    struct ggml_tensor * var_sum = temporal_mean(ctx0, weighted_var, state_.lower_convolutions);
     var_sum = ggml_scale(ctx0, var_sum, (float)seq_len);  // Convert avg to sum
     var_sum = ggml_reshape_3d(ctx0, var_sum, 1, hidden_dim * 3, 1);
     var_sum = ggml_clamp(ctx0, var_sum, 1e-12f, 1e10f);
@@ -691,7 +812,7 @@ struct ggml_cgraph * AudioTokenizerEncoder::build_graph(int32_t n_frames) {
      ggml_set_name(pooled, "asp_pooled");
      
      // FC: 3072 -> 1024
-     cur = apply_conv1d(ctx0, model_.fc_w, model_.fc_b, pooled, 1, 0, 1);
+     cur = conv(ctx0, model_.fc_w, model_.fc_b, pooled, 1, 0, 1);
      ggml_set_name(cur, "fc_out");
     
     // Squeeze to 1D
@@ -727,6 +848,11 @@ bool AudioTokenizerEncoder::encode(const float * samples, int32_t n_samples,
         return false;
     }
     
+    if (!audit_graph_placement("speaker_encoder", state_.sched, gf, &error_msg_)) {
+        ggml_backend_sched_reset(state_.sched);
+        return false;
+    }
+
     struct ggml_tensor * mel_tensor = ggml_graph_get_tensor(gf, "mel");
     if (!mel_tensor) {
         error_msg_ = "Failed to find mel tensor";
@@ -742,7 +868,7 @@ bool AudioTokenizerEncoder::encode(const float * samples, int32_t n_samples,
     // we can copy directly!
     ggml_backend_tensor_set(mel_tensor, mel.data(), 0, mel.size() * sizeof(float));
     
-    if (ggml_backend_sched_graph_compute(state_.sched, gf) != GGML_STATUS_SUCCESS) {
+    if (audited_graph_compute("speaker_encoder", state_.sched, gf, &error_msg_) != GGML_STATUS_SUCCESS) {
         error_msg_ = "Failed to compute graph";
         ggml_backend_sched_reset(state_.sched);
         return false;
