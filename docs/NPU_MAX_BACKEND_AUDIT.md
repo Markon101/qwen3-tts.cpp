@@ -127,21 +127,49 @@ cooldown; Android's thermal controls remain responsible for protection.
 
 ## Experimental backend additions
 
-NPU-Max appends three executable wire opcodes without renumbering existing
-operations: F32 SIN, ReLU and CLAMP. They reuse the multi-worker unary DMA and
-VTCM scheduling path. ReLU/clamp use HVX compares/selects. SIN uses the existing
-HVX polynomial for absolute inputs at most 128; larger arguments use DSP libm
-`sinf`, avoiding inaccurate F32 phase reduction. This scalar escape still runs
-on the Hexagon DSP. Rows over 65536 elements use bounded direct-DDR HVX tiles spread over the
-physical worker pool; this avoids allocating a full waveform row per VTCM
-double buffer. These are not quantized activations.
+NPU-Max appends four executable wire opcodes without renumbering existing
+operations: F32 SIN, ReLU, CLAMP, and DIAG_MASK_INF. Unary ops reuse the
+multi-worker unary DMA and VTCM scheduling path. ReLU/clamp use HVX
+compares/selects. SIN uses an HVX vector range check (`|x| <= 128`) to take the
+pure-HVX polynomial fast path across entire 32-float vectors without scalar roadblocks;
+vectors containing larger arguments fall back per-element to DSP libm `sinf`,
+avoiding inaccurate F32 phase reduction. Rows over 65536 elements use bounded
+direct-DDR HVX tiles spread over the physical worker pool; this avoids
+allocating a full waveform row per VTCM double buffer. `HTP_OP_DIAG_MASK_INF`
+reuses the triangular mask kernel (`tri_f32`) with `-INFINITY` fill and
+`boundary = n_past + i01 + 1`, `keep_left = 1` so `talker_prefill` and
+`code_predictor_prefill` execute 100% on HTP (`CPU=0, splits=1`).
+
+In addition, NPU-Max upgrades several existing HTP kernels and host scheduler
+predicates:
+- **Exact `tanh`-based `HTP_OP_UNARY_GELU` (`act-ops.c`)**: `unary_gelu_f32_per_thread`
+  previously computed the `GELU_QUICK` approximation `x * sigmoid(1.702 * x)` instead
+  of the standard `0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))` formula
+  used by CPU, OpenCL, and `glu_geglu_f32_per_thread`. Switching to the exact `tanh`
+  formulation improved HTP vocoder waveform parity against OpenCL from `NRMSE = 0.0518`
+  to **`NRMSE = 0.00130` (`cosine = 0.99999915`)**.
+- **Tail-safe non-32-aligned `GGML_OP_SOFT_MAX` (`softmax-ops.c` & `ggml-hexagon.cpp`)**:
+  Guarding `opt_path` with `!(ne00 & (VLEN_FP32 - 1))` allows non-32-aligned rows
+  (such as `ne0 = 636` in the ECAPA speaker encoder's attentive statistics pooling)
+  to execute on HTP using the tail-safe HVX softmax path (`CPU=0, splits=1`).
+- **HVX-vectorized `CONCAT` and 2D transpose/contiguous `CPY` (`concat-ops.c` & `cpy-ops.c`)**:
+  Added an HVX `hvx_copy_uu` + `hex_l2fetch` fast path for contiguous row concatenation
+  and a fast path in `DEFINE_CPY_RESHAPE` for contiguous copies and 2D transposes.
+- **Weight-view scheduler anchoring (`ggml-backend.cpp`)**:
+  `ggml_backend_sched` checks `src->view_src ? src->view_src->buffer : src->buffer` for
+  `GGML_BACKEND_BUFFER_USAGE_WEIGHTS`, anchoring operations that consume reshaped weight
+  views directly to HTP0.
+- **All 6 physical HVX units enabled by default (`GGML_HEXAGON_NHVX=6`)**:
+  Default worker pool concurrency is set to 6 HVX workers matching the SM8750's 6 physical
+  HVX128 units.
 
 The eligibility predicate rejects non-F32 tensors, unequal shapes,
 element-strided, overlapping or axis-permuted rows, empty or over-16777216-element rows,
 and unordered/nonfinite clamp bounds. Row-strided inputs and outputs are supported (CLAMP is an in-place view). The
-new independent direct-HTP test covers fifteen widths, both contiguous and
-row-strided in-place layouts, all three operations, large SIN arguments and an adjacent
-output canary. A scheduler-free negative dispatch deliberately sends an
+new independent direct-HTP test (`npu-max-test-unary`) covers fifteen widths, both contiguous and
+row-strided in-place layouts, all three unary operations, large SIN arguments, adjacent
+output canaries, and `DIAG_MASK_INF + SOFT_MAX` combinations across aligned and unaligned
+widths (`7, 33, 63, 636`). A scheduler-free negative dispatch deliberately sends an
 unsupported F16 clamp and must fail closed.
 
 The audit also found a correctness hole: the original DSP discarded kernel
@@ -236,16 +264,16 @@ counters alone cannot attribute a fallback graph node to a device.
 
 ### 1. Component Migration Summary
 
-Every pipeline component has been audited, migrated, optimized, and validated on live Snapdragon 8 Elite hardware (SM8750, Hexagon v79 HTP):
+Every pipeline component has been audited, migrated, optimized, and validated on live Snapdragon 8 Elite hardware (SM8750, Hexagon v79 HTP with `GGML_HEXAGON_NHVX=6`). Under `QWEN3_TTS_MAX_STRICT=1`, all six core graphs are strictly required to execute with **`CPU=0, other=0, splits=1`**:
 
-| Pipeline Stage | Implementation on HTP | Placement in NPU-Max | Validation Metric & Gate |
+| Pipeline Stage | Implementation on HTP | Placement in NPU-Max (`QWEN3_TTS_MAX_STRICT=1`) | Validation Metric & Gate |
 | --- | --- | --- | --- |
-| **Speaker Encoder** | ECAPA-TDNN lowered via tiled weight-first convolution (`tiled_conv1d`) + HTP dense projections | HTP=739, CPU=21 (mel padding/pooling), 0 other, 4 splits | **`cosine: 0.9999996`**, NRMSE: 0.00089, gate: **PASS** |
-| **Main Talker** | 28-layer transformer on HTP; persistent resident weights & KV cache in shared DDR buffers | Step: **HTP=759, CPU=0, 1 split** (100% on HTP). Prefill: HTP=787, CPU=28 (causal mask) | Step compute: **15.5 ms/frame**; zero CPU fallback during autoregressive generation |
-| **Code Predictor** | 5-layer transformer; 14 codebook predictions per frame with resident KV cache | Step: **HTP=138, CPU=0, 1 split** (100% on HTP). Prefill: HTP=144, CPU=5 (causal mask) | Compute: **40.3 ms/frame**; complete autoregressive frame rate: **13.3 frames/s** |
-| **Neural Vocoder** | Polyphase transposed conv (`max_transpose_conv`), im2col conv (`max_conv`), depthwise conv (`max_depthwise_conv`), Snake/SIN & CLAMP/ReLU lowered to HTP | Step: **HTP=4,042, CPU=16 (codebook lookup), 0 other** | **`cosine: 0.9992 - 0.9994`**, NRMSE: 0.033 - 0.044, gate: **PASS** |
+| **Speaker Encoder** | ECAPA-TDNN lowered via tiled weight-first convolution (`tiled_conv1d`), HTP dense projections, and tail-safe HTP `SOFT_MAX` | **HTP=760, CPU=0, other=0, 1 split** (100% on HTP) | **`cosine: 0.99999971`**, NRMSE: `0.000771`, max_abs: `0.000869`, **141 ms** vs 591 ms CPU (**4.2x speedup**) |
+| **Main Talker** | 28-layer transformer on HTP; persistent resident weights & KV cache in shared DDR buffers; `HTP_OP_DIAG_MASK_INF` for prefill | Step: **HTP=759, CPU=0, 1 split**. Prefill: **HTP=815, CPU=0, 1 split** (100% on HTP) | Step compute: **15.5 ms/frame**; zero CPU fallback in both prefill and step |
+| **Code Predictor** | 5-layer transformer; 14 codebook predictions per frame with resident KV cache; `HTP_OP_DIAG_MASK_INF` for prefill | Step: **HTP=138, CPU=0, 1 split**. Prefill: **HTP=149, CPU=0, 1 split** (100% on HTP) | Compute: **40.3 ms/frame**; zero CPU fallback in both prefill and step |
+| **Neural Vocoder** | Native `[channels, time, 1]` (`channels_first`) lowering, pre-computed F32 VQ codebooks, pre-split 1D conv tap matrices (`~143 MB` resident), HMX/HVX matmul, depthwise conv, Snake/SIN & exact `tanh` GELU | **HTP=1,609, CPU=0, other=0, 1 split** (100% on HTP; 2,449 fewer nodes than `[time, channels]` lowering) | **230.1 ms** (13 frames) / **398.3 ms** (24 frames) — **30.3x faster** than prior HTP, **2.69x faster than Adreno 830 OpenCL**, **4.76x faster than CPU**; **`cosine: 0.99999915`**, NRMSE: `0.00130` vs OpenCL |
 
-### 2. Critical Bugs Identified & Resolved
+### 2. Critical Bugs & Architectural Bottlenecks Identified & Resolved
 
 1. **HVX Vector Intrinsic Mask Bug (`hvx-base.h:25-29`)**:
    - Vector mask generation used `qr2 = Q6_Q_vsetq2_R(right_off - 128)` when `right_off > 128`, which erroneously wrapped byte offset into negative registers. Fixed by properly masking against `VLEN` and shifting bit vectors.
@@ -253,45 +281,38 @@ Every pipeline component has been audited, migrated, optimized, and validated on
    - `struct htp_ops_context *octx` was allocated once per batch and retained stale pointer fields (`src0_spad`, `src1_spad`, `flags`, `src`, `dst`) across ops in the loop `for (uint32_t i=0; i < n_ops; i++)`. Leaking state between ops caused stride-3+ transposed convolutions to fail during batched execution. Resolved by clearing `memset(octx, 0, sizeof(*octx))` at the start of each operation iteration.
 3. **HMX Activation Type Handling & Stride Asserts (`matmul-ops.c` & `audio_tokenizer_decoder.cpp`)**:
    - HMX hardware matrix multiply (`hmx_matmul_2d_f32`) assumes activations (`src1`) are `float *` (F32) and converts them to FP16 into VTCM. Casting activations to FP16 prior to dispatch caused `sizeof(float)` stride division to halve the row stride and reinterpreted 16-bit float bits as IEEE-754 32-bit floats, producing explosive values and NaNs. Resolved by keeping vocoder activations as genuine `F32` and defensively routing any non-F32 activation in `op_matmul` to HVX.
-4. **VTCM Bounded Chunking for Arbitrary-Length Streams (`audio_tokenizer_decoder.cpp`)**:
-   - Audio sequences with > 40 frames generated waveform rows with > 76,800 float elements. Allocating double-buffered per-row scratchpads across 4–6 worker threads exceeded the physical 8 MiB VTCM limit (`HTP_STATUS_VTCM_TOO_SMALL`). Resolved by chunking vocoder execution into 16-frame units (~30,720 samples / ~2.9 MB VTCM, using < 40% of VTCM), supporting unlimited audio durations without running out of VTCM.
+4. **Native `[channels, time, 1]` (`channels_first`) Vocoder Lowering & Pre-Transformed Resident Weights (`audio_tokenizer_decoder.cpp`)**:
+   - Lowering 1D convolutions in `[time, channels, 1]` layout required two `TRANSPOSE + CONT` pairs around every `MUL_MAT` (2,449 extra nodes) and grew `ne[0]` (`time`) up to `192,000` floats at the final upsampling stages, exhausting VTCM (`HTP_STATUS_VTCM_TOO_SMALL`) beyond 16 frames and leaving non-32-aligned row widths that bypassed fast HVX paths.
+   - Refactoring the NPU-Max vocoder graph to operate natively in `[channels, time, 1]` (`channels_first = true`) with pre-computed F32 VQ codebooks (`state_.max_codebooks`) and pre-split per-tap 2D `[in, out]` weight matrices (`state_.max_taps`, `149.9 MB` resident on HTP) eliminated **100% of `TRANSPOSE + CONT` ops**, reduced the graph from `4,058` to **`1,609` HTP nodes (`CPU=0, splits=1`)**, and bounded `ne[0] <= 1920` floats (`<= 7.5 KB` per row in VTCM, 100% 32-float HVX-aligned) regardless of frame count.
+5. **100-Frame Un-Chunked Vocoder Window & 16-Frame Causal Overlap Chunking (`audio_tokenizer_decoder.cpp`, `qwen3_tts.cpp`, `pipeline-stage.cpp`)**:
+   - Because `[channels, time, 1]` keeps `ne[0] <= 1920` for any sequence length, the un-chunked vocoder window was raised from `16` frames (`1.28 s`) to **`100` frames (`8.0 s`)**.
+   - For sequences exceeding 100 frames (or streaming chunk callbacks), decoding independent chunks from zero-padded silence previously reset the causal convolution/Snake state at chunk boundaries, causing an audible pitch dip. Prepending **16 frames (`1.28 s`) of causal left context** and discarding the warmup prefix (`ctx_frames * 1920` samples) across `AudioTokenizerDecoder::decode`, `Qwen3TTS::decode_codes_streaming`, and `pipeline-stage.cpp` eliminates inter-clip pitch shifts and phase discontinuities.
+6. **Exact `tanh`-Based `HTP_OP_UNARY_GELU` in ConvNeXt Blocks (`act-ops.c:310-395`)**:
+   - Fixing `unary_gelu_f32_per_thread` to compute the exact `tanh`-based GELU formula instead of `GELU_QUICK` (`x * sigmoid(1.702 * x)`) reduced HTP vocoder NRMSE by **40x** (`0.0518` -> `0.00130` vs OpenCL).
 
-### 3. Empirical Benchmark Comparison (Snapdragon 8 Elite Live Hardware)
+### 3. Vocoder Backend Benchmark & Numerical Parity (Snapdragon 8 Elite Live Hardware)
 
-Measurements taken on live SM8750 with Qwen3-TTS 0.6B Q8_0:
+Measured on identical 24-frame (`1.92 s` audio, `46,080` samples) and 13-frame (`1.04 s` audio, `24,960` samples) speech code sequences on SM8750 (`NHVX=6`):
 
-| Metric | Original Baseline (`npu.sh`) | NPU-Max Full HTP (`npu-max.sh --profile htp`) | Analysis & Takeaways |
-| --- | --- | --- | --- |
-| **Execution Engines** | Talker on HTP; Vocoder on OpenCL GPU | **Talker, Code Predictor, Speaker Encoder & Vocoder ALL on HTP** | Entire pipeline unified on NPU Hexagon processor |
-| **Cold Startup Latency** | 26.8 s | **23.0 s** | **3.8 s faster cold start on HTP** (avoids OpenCL GPU driver & shader compilation) |
-| **Warm Generation RTF** | ~0.15x realtime (6.7x faster than speech) | ~0.15x realtime (6.7x faster than speech) | Generation throughput identical at **13.3 frames/sec** (75.2 ms/frame) |
-| **Warm Request Total** | 3.35 s | 19.9 s (32 frames) / 26.4 s (42 frames) | OpenCL GPU is faster for dense 1D convs; Full HTP keeps GPU powered off |
-| **Talker Step Latency** | 15.9 ms/frame | 15.5 ms/frame | 100% on HTP (759 nodes, 0 CPU) |
-| **Code Predictor Latency** | 43.9 ms/frame | 40.8 ms/frame | 100% on HTP (138 nodes, 0 CPU) |
-| **Speaker Encoder Latency**| ~80 ms (CPU/fallback) | 70 ms (HTP) | `cosine: 0.9999996` with original baseline |
-| **RAM Footprint (RSS)** | 1.09 GB | 1.10 GB | Minimal overhead; resident weights and KV caches preserved |
-| **SoC Temperatures** | ~41.5°C – 44.8°C | ~41.5°C – 44.4°C | Stable thermal envelope; `throttling: 0` |
-| **Audio Numerical Parity** | Baseline Reference | **`cosine: 0.9992 - 0.9994`**, NRMSE: 0.033 | Gate: **PASS** across all frame sizes |
-| **Audio Waveform Quality** | Clean speech | **Clean speech (RMS: 0.080, Peak: 0.455, 0 nonfinite)** | High intelligibility, no clipping or clicks |
+| Vocoder Backend | Graph Placement | 13-Frame Compute (`1.04 s` audio) | 24-Frame Compute (`1.92 s` audio) | Throughput (RTF) | Parity vs OpenCL (`cosine` / `NRMSE` / `max_abs`) | Parity vs CPU (`cosine` / `NRMSE` / `max_abs`) |
+| --- | --- | --- | --- | --- | --- | --- |
+| **NPU-Max HTP (`channels_first`, `NHVX=6`)** | **HTP=1,609, CPU=0, splits=1** | **230.1 ms** (`236.6 ms` total) | **398.3 ms** (`426.0 ms` total) | **0.207x RTF (4.82x realtime)** | **`0.99999915` / `0.001303` / `0.001792` (PASS)** | **`0.99999190` / `0.004029` / `0.010818` (PASS)** |
+| **Adreno 830 OpenCL (`GPUOpenCL`)** | OpenCL=723, CPU=202, splits=148 | ~610 ms | **1,070.9 ms** (`1,105.0 ms` total) | 0.558x RTF (1.79x realtime) | Reference (`1.0` / `0.0`) | `0.99999357` / `0.003590` / `0.010838` (PASS) |
+| **ARM CPU (`MAX=0`, native conv)** | CPU=925, splits=1 | ~1,050 ms | **1,896.6 ms** (`1,899.0 ms` total) | 0.988x RTF (1.01x realtime) | `0.99999357` / `0.003590` / `0.010838` (PASS) | Reference (`1.0` / `0.0`) |
+| *Prior HTP Vocoder (`[time, channels]`, 16-frame chunked)* | *HTP=4,042, CPU=16, splits=2* | *6,976.0 ms* | *~13,950 ms* | *6.71x RTF (0.15x realtime)* | *`0.9992` / `0.033` (before GELU fix)* | *`0.9992` / `0.033`* |
 
-### 4. Detailed 3-Way Comparative Benchmark & Telemetry (Snapdragon 8 Elite SM8750)
+### 4. End-to-End Pipeline Summary (Snapdragon 8 Elite SM8750)
 
-Comprehensive comparative run across `original` baseline, `htp` (100% NPU acceleration), and `mixed` (HTP transformer + OpenCL vocoder):
-
-| Metric | Original Baseline (`original`) | NPU-Max Full HTP (`htp`) | NPU-Max Mixed (`mixed`) | Key Architectural Takeaway |
+| Metric | Original Baseline (`npu.sh`) | NPU-Max Full HTP (`npu-max.sh --profile htp`) | NPU-Max Mixed (`npu-max.sh --profile mixed`) | Key Architectural Takeaway |
 | --- | --- | --- | --- | --- |
-| **Speaker Encoder** | Preferred backend + CPU | **HTP (tiled_conv1d)** | **HTP (tiled_conv1d)** | ECAPA lowered directly to HTP |
-| **Talker Transformer** | HTP (759 nodes) | **HTP (759 nodes)** | **HTP (759 nodes)** | 100% on HTP during generation |
-| **Code Predictor** | HTP (138 nodes) | **HTP (138 nodes)** | **HTP (138 nodes)** | 100% on HTP during generation |
-| **Neural Vocoder** | GPU OpenCL | **HTP (4,042 nodes)** | GPU OpenCL | Fully unified NPU vs hybrid |
-| **Cold Request Latency** | 25.02 s | **23.22 s** (1.8s faster!) | 26.57 s | HTP cold start is fastest by avoiding GPU OpenCL init |
-| **Warm Request (32 frames)** | 3.36 s | 19.86 s | 3.46 s | Adreno 830 GPU provides massive FP32 conv throughput |
+| **Speaker Encoder** | Preferred backend + CPU | **HTP=760, CPU=0, splits=1 (141 ms)** | **HTP=760, CPU=0, splits=1 (141 ms)** | 4.2x faster than CPU (`591 ms`), `cosine = 0.99999971` |
+| **Talker Transformer** | HTP step + CPU prefill mask | **HTP=815 prefill / HTP=759 step, CPU=0, splits=1** | **HTP=815 prefill / HTP=759 step, CPU=0, splits=1** | 100% on HTP across both prefill and autoregressive steps |
+| **Code Predictor** | HTP step + CPU prefill mask | **HTP=149 prefill / HTP=138 step, CPU=0, splits=1** | **HTP=149 prefill / HTP=138 step, CPU=0, splits=1** | 100% on HTP across both prefill and autoregressive steps |
+| **Neural Vocoder** | GPU OpenCL (`1,071 ms` / 24f) | **HTP=1,609, CPU=0, splits=1 (`398 ms` / 24f)** | GPU OpenCL (`1,071 ms` / 24f) | **HTP vocoder is now 2.69x faster than Adreno 830 OpenCL!** |
 | **Speech Code Parity** | `7599aee4...` | `7599aee4...` | `7599aee4...` | **100% BIT-EXACT SHA-256 MATCH** across all backends |
-| **WAV Parity (Mixed vs Baseline)** | Baseline Reference | Cosine 0.989 | **100% BIT-EXACT MATCH** (`307dfa9f...`) | Exact sample parity with zero drift |
-| **RAM Footprint (RSS)** | 1.40 GB | **1.18 GB (~220 MB RAM saved)** | 1.40 GB | Zero GPU driver memory overhead on Full HTP |
-| **GPU Peak Temperature** | 81.5°C | **56.9°C (24.6°C cooler!)** | 86.9°C | GPU remains totally dormant and cold under HTP |
-| **NSP HMX / HVX Peak Temp** | 59.8°C / 63.7°C | 61.0°C / 65.6°C | 63.3°C / 67.2°C | Safe thermal envelope throughout |
-| **Thermal Throttling** | 0 | 0 | 0 | Zero thermal degradation observed |
+| **Vocoder Waveform Parity** | Baseline Reference | **`cosine = 0.99999915`, `NRMSE = 0.00130`** | **100% BIT-EXACT MATCH** (`307dfa9f...`) | Near-exact F32 parity (`max_abs = 0.00179`) |
+| **RAM Footprint (RSS)** | ~1.40 GB | **~1.25 GB** (includes `143 MB` pre-split conv taps) | ~1.40 GB | Lower RSS than OpenCL driver while running 2.69x faster |
+| **GPU Peak Temperature** | 81.5°C | **56.9°C (GPU dormant)** | 86.9°C | Full HTP keeps Adreno GPU completely powered off |
 
 ### 5. Pipelined Streaming & Concurrent Session Dynamics
 

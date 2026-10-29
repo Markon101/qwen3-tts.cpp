@@ -159,6 +159,7 @@ struct audio_decoder_state {
     ggml_backend_buffer_t max_buffer = nullptr;
     std::map<const ggml_tensor *, std::vector<ggml_tensor *>> max_taps;
     std::map<const ggml_tensor *, ggml_tensor *> max_snake;
+    std::map<const ggml_tensor *, ggml_tensor *> max_codebooks;
 
 };
 
@@ -234,11 +235,11 @@ private:
     void normalize_codebooks();
     bool prepare_max_weights();
     ggml_tensor * max_conv(ggml_context * ctx, ggml_tensor * weight,
-                           ggml_tensor * x, int dilation = 1);
+                           ggml_tensor * x, int dilation = 1, bool channels_first = false);
     ggml_tensor * max_transpose_conv(ggml_context * ctx, ggml_tensor * weight,
-                                     ggml_tensor * x, int stride);
+                                     ggml_tensor * x, int stride, bool channels_first = false);
     ggml_tensor * max_depthwise_conv(ggml_context * ctx, ggml_tensor * weight,
-                                     ggml_tensor * x);
+                                     ggml_tensor * x, bool channels_first = false);
 
     
     audio_decoder_model model_;

@@ -99,6 +99,51 @@ bool support_controls(ggml_backend_t backend) {
     ggml_free(ctx);
     return pass;
 }
+bool run_diag_mask_and_softmax(ggml_backend_t backend) {
+    bool pass = true;
+    for (int width : {7, 33, 63, 636}) {
+        ggml_init_params params{16 * 1024 * 1024, nullptr, true};
+        ggml_context *ctx = ggml_init(params);
+        ggml_tensor *in = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, width, 5);
+        ggml_tensor *masked = ggml_diag_mask_inf(ctx, in, 2);
+        ggml_tensor *sm = ggml_soft_max(ctx, in);
+        ggml_set_input(in); ggml_set_output(masked); ggml_set_output(sm);
+        ggml_cgraph *graph = ggml_new_graph(ctx);
+        ggml_build_forward_expand(graph, masked);
+        ggml_build_forward_expand(graph, sm);
+        ggml_backend_buffer_t buffer = ggml_backend_alloc_ctx_tensors(ctx, backend);
+        auto dev = ggml_backend_get_device(backend);
+        bool ok = buffer && ggml_backend_dev_supports_op(dev, masked) && ggml_backend_dev_supports_op(dev, sm);
+        if (ok) {
+            std::vector<float> vals(size_t(width) * 5), out_mask(vals.size()), out_sm(vals.size());
+            for (size_t i = 0; i < vals.size(); ++i) vals[i] = std::sin(float(i) * 0.37f) * 3.0f;
+            ggml_backend_tensor_set(in, vals.data(), 0, vals.size() * sizeof(float));
+            ok = ggml_backend_graph_compute(backend, graph) == GGML_STATUS_SUCCESS;
+            ggml_backend_tensor_get(masked, out_mask.data(), 0, out_mask.size() * sizeof(float));
+            ggml_backend_tensor_get(sm, out_sm.data(), 0, out_sm.size() * sizeof(float));
+            for (int r = 0; r < 5; ++r) {
+                double max_v = -1e30, sum_v = 0;
+                for (int c = 0; c < width; ++c) {
+                    float v = vals[r * width + c];
+                    float m = out_mask[r * width + c];
+                    if (c > 2 + r) { if (!std::isinf(m) || m > 0) ok = false; }
+                    else { if (m != v) ok = false; }
+                    max_v = std::max(max_v, double(v));
+                }
+                for (int c = 0; c < width; ++c) sum_v += std::exp(double(vals[r * width + c]) - max_v);
+                for (int c = 0; c < width; ++c) {
+                    double exp_sm = std::exp(double(vals[r * width + c]) - max_v) / sum_v;
+                    if (std::fabs(double(out_sm[r * width + c]) - exp_sm) > 5e-5) ok = false;
+                }
+            }
+        }
+        std::printf("RESULT {\"op\":\"diag_mask_inf+softmax\",\"width\":%d,\"rows\":5,\"pass\":%s}\n", width, ok ? "true" : "false");
+        if (buffer) ggml_backend_buffer_free(buffer);
+        ggml_free(ctx);
+        if (!ok) pass = false;
+    }
+    return pass;
+}
 }
 int main(int argc, char **argv) {
     const bool invalid = argc == 2 && std::strcmp(argv[1], "--invalid-f16") == 0;
@@ -122,7 +167,7 @@ int main(int argc, char **argv) {
         std::fprintf(stderr, "ERROR: invalid F16 clamp returned successfully\n");
         return 9;
     }
-    int cases = 0, failures = support_controls(backend) ? 0 : 1;
+    int cases = 0, failures = (support_controls(backend) && run_diag_mask_and_softmax(backend)) ? 0 : 1;
     for (int width : {1, 3, 31, 32, 33, 63, 64, 65, 127, 128, 129, 257, 4097, 65537, 192000})
         for (bool strided : {false, true}) for (int op = 0; op < 3; ++op) {
             ++cases;

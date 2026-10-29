@@ -843,19 +843,21 @@ bool AudioTokenizerEncoder::encode(const float * samples, int32_t n_samples,
     
     struct ggml_cgraph * gf = build_graph(n_frames);
 
+    struct ggml_tensor * mel_tensor = ggml_graph_get_tensor(gf, "mel");
+    if (!mel_tensor) {
+        error_msg_ = "Failed to find mel tensor";
+        return false;
+    }
+    if (state_.lower_convolutions && state_.backend) {
+        ggml_backend_sched_set_tensor_backend(state_.sched, mel_tensor, state_.backend);
+    }
+
     if (!ggml_backend_sched_alloc_graph(state_.sched, gf)) {
         error_msg_ = "Failed to allocate graph";
         return false;
     }
     
     if (!audit_graph_placement("speaker_encoder", state_.sched, gf, &error_msg_)) {
-        ggml_backend_sched_reset(state_.sched);
-        return false;
-    }
-
-    struct ggml_tensor * mel_tensor = ggml_graph_get_tensor(gf, "mel");
-    if (!mel_tensor) {
-        error_msg_ = "Failed to find mel tensor";
         ggml_backend_sched_reset(state_.sched);
         return false;
     }

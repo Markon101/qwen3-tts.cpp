@@ -259,7 +259,7 @@ class Checks:
         assert Path(env['QWEN3_TTS_EXECUTION_TRACE']).parent == self.repo / '.cache/npu-max/traces'
         assert env['QWEN3_TTS_VALIDATE_AUDIO'] == env['QWEN3_TTS_VALIDATE_LOGITS'] == '1'
         assert env['GGML_HEXAGON_HOSTBUF'] == '0'
-        assert env['GGML_HEXAGON_NHVX'] == '4' and env['GGML_HEXAGON_OPPOLL'] == '1'
+        assert env['GGML_HEXAGON_NHVX'] == '6' and env['GGML_HEXAGON_OPPOLL'] == '1'
         assert capture['cwd'] == str(self.cwd)
         library_root = self.repo / '.cache/npu-max/build/src'
         assert env['LD_LIBRARY_PATH'].split(':')[0] == str(library_root)

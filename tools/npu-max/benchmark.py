@@ -388,7 +388,7 @@ def parse_args(argv=None):
     parser.add_argument('--reference', type=Path)
     parser.add_argument('--ref-text-file', type=Path)
     parser.add_argument('--embedding', type=Path)
-    parser.add_argument('--nhvx', type=int, choices=range(1, 7), default=4)
+    parser.add_argument('--nhvx', type=int, choices=range(1, 7), default=6)
     parser.add_argument('--poll', choices=['0', '1'], default='1')
     parser.add_argument('--component-trace', action='store_true', help='Separately reload each variant for one audited diagnostic request; excluded from throughput results.')
     parser.add_argument('--response-timeout', type=float, default=240)

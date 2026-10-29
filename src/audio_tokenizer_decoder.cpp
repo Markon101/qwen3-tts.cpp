@@ -26,6 +26,7 @@ void AudioTokenizerDecoder::unload_model() {
     state_.max_ctx = nullptr;
     state_.max_taps.clear();
     state_.max_snake.clear();
+    state_.max_codebooks.clear();
     state_.max_graph = false;
     
     if (state_.sched) {
@@ -394,7 +395,7 @@ bool AudioTokenizerDecoder::load_model(const std::string & model_path) {
 
 // NPU-Max preserves GGUF weights and prepares only additional resident layouts.
 bool AudioTokenizerDecoder::prepare_max_weights() {
-    ggml_init_params params = {ggml_tensor_overhead() * 512, nullptr, true};
+    ggml_init_params params = {ggml_tensor_overhead() * 1024, nullptr, true};
     state_.max_ctx = ggml_init(params);
     if (!state_.max_ctx) { error_msg_ = "Cannot allocate NPU-Max constant metadata"; return false; }
     struct upload { ggml_tensor * tensor; std::vector<uint8_t> data; };
@@ -418,6 +419,21 @@ bool AudioTokenizerDecoder::prepare_max_weights() {
             memcpy(item.data.data() + i * sizeof(value), &value, sizeof(value));
         }
         uploads.push_back(std::move(item));
+    };
+    auto conv1d = [&](ggml_tensor * source) {
+        if (!source) return false;
+        std::vector<float> values = read(source);
+        if (values.empty()) return false;
+        const int64_t kernel = source->ne[0], in = source->ne[1], out = source->ne[2];
+        for (int64_t tap = 0; tap < kernel; ++tap) {
+            ggml_tensor * target = ggml_new_tensor_2d(state_.max_ctx, source->type, in, out);
+            std::vector<float> data(in * out);
+            for (int64_t o = 0; o < out; ++o)
+                for (int64_t i = 0; i < in; ++i)
+                    data[o * in + i] = values[(o * in + i) * kernel + tap];
+            state_.max_taps[source].push_back(target); add(target, data);
+        }
+        return true;
     };
     auto transposed = [&](ggml_tensor * source) {
         std::vector<float> values = read(source);
@@ -453,7 +469,17 @@ bool AudioTokenizerDecoder::prepare_max_weights() {
         ggml_tensor * target = ggml_new_tensor_1d(state_.max_ctx, GGML_TYPE_F32, values.size());
         state_.max_snake[source] = target; add(target, values); return true;
     };
+    auto codebook = [&](ggml_tensor * source) {
+        if (!source || state_.max_codebooks.count(source)) return true;
+        std::vector<float> values = read(source);
+        if (values.empty()) return false;
+        ggml_tensor * target = ggml_new_tensor_2d(state_.max_ctx, GGML_TYPE_F32, source->ne[0], source->ne[1]);
+        state_.max_codebooks[source] = target; add(target, values); return true;
+    };
     bool ok = true;
+    ok = codebook(model_.vq_first_codebook) && ok;
+    for (int i = 0; i < 15; ++i) ok = codebook(model_.vq_rest_codebook[i]) && ok;
+    ok = conv1d(model_.pre_conv_w) && conv1d(model_.dec0_conv_w) && conv1d(model_.dec6_conv_w) && ok;
     for (const auto & block : model_.upsample) {
         if (block.conv_w) ok = transposed(block.conv_w) && ok;
         if (block.dwconv_w) ok = depthwise(block.dwconv_w) && ok;
@@ -461,9 +487,11 @@ bool AudioTokenizerDecoder::prepare_max_weights() {
     for (const auto & block : model_.dec_blocks) {
         ok = transposed(block.conv_t_w) && ok;
         ok = snake(block.snake_alpha, 1) && snake(block.snake_beta, -1) && ok;
-        for (const auto & res : block.res)
+        for (const auto & res : block.res) {
+            ok = conv1d(res.conv1_w) && conv1d(res.conv2_w) && ok;
             ok = snake(res.act1_alpha, 1) && snake(res.act1_beta, -1) &&
                  snake(res.act2_alpha, 1) && snake(res.act2_beta, -1) && ok;
+        }
     }
     ok = snake(model_.dec5_snake_alpha, 1) && snake(model_.dec5_snake_beta, -1) && ok;
     if (!ok) { error_msg_ = "NPU-Max requires F16/F32 convolution and Snake weights"; return false; }
@@ -490,15 +518,49 @@ static ggml_tensor * max_concat_tiles(ggml_context * ctx, std::vector<ggml_tenso
     return tiles[0];
 }
 
-// Exact im2col layout, using supported views/cont/concat; batches never exceed
+// Exact im2col / per-tap lowering, using supported views/cont/concat; batches never exceed
 // the real HTP backend's 1024-row matmul support bound.
 ggml_tensor * AudioTokenizerDecoder::max_conv(ggml_context * ctx, ggml_tensor * weight,
-                                              ggml_tensor * x, int dilation) {
+                                              ggml_tensor * x, int dilation, bool channels_first) {
     const int64_t kernel = weight->ne[0], in = weight->ne[1], out = weight->ne[2];
-    const int64_t length = x->ne[0] - (kernel - 1) * dilation;
-    GGML_ASSERT(length > 0 && dilation > 0 && x->ne[1] == in &&
+    const int64_t x_len = channels_first ? x->ne[1] : x->ne[0];
+    const int64_t length = x_len - (kernel - 1) * dilation;
+    GGML_ASSERT(length > 0 && dilation > 0 &&
+                (channels_first ? x->ne[0] == in : x->ne[1] == in) &&
                 x->ne[2] == 1 && x->ne[3] == 1 && x->nb[0] == sizeof(float));
     std::vector<ggml_tensor *> tiles;
+    const auto tap_it = state_.max_taps.find(weight);
+    const bool has_taps = (tap_it != state_.max_taps.end() && (int64_t)tap_it->second.size() == kernel);
+    if (has_taps) {
+        ggml_tensor * x_ct = channels_first ? ggml_reshape_2d(ctx, x, in, x_len) :
+                             ggml_cont(ctx, ggml_transpose(ctx, ggml_reshape_2d(ctx, x, x_len, in)));
+        const auto & taps = tap_it->second;
+        for (int64_t base = 0; base < length; base += 1024) {
+            const int64_t count = std::min<int64_t>(1024, length - base);
+            ggml_tensor * sum = nullptr;
+            for (int64_t tap = 0; tap < kernel; ++tap) {
+                ggml_tensor * slice = ggml_view_2d(ctx, x_ct, in, count, x_ct->nb[1],
+                                                   (base + tap * dilation) * x_ct->nb[1]);
+                ggml_tensor * product = ggml_mul_mat(ctx, taps[tap], slice);
+                if (out == 1) {
+                    product = ggml_reshape_1d(ctx, product, count);
+                }
+                sum = sum ? ggml_add(ctx, sum, product) : product;
+            }
+            tiles.push_back(sum);
+        }
+        if (out == 1) {
+            ggml_tensor * flat = max_concat_tiles(ctx, std::move(tiles), 0);
+            return channels_first ? ggml_reshape_3d(ctx, flat, 1, length, 1) :
+                                    ggml_reshape_3d(ctx, flat, length, 1, 1);
+        }
+        ggml_tensor * out_ct = max_concat_tiles(ctx, std::move(tiles), 1);
+        if (channels_first) {
+            return ggml_reshape_3d(ctx, out_ct, out, length, 1);
+        }
+        return ggml_reshape_3d(ctx, ggml_cont(ctx, ggml_transpose(ctx, out_ct)), length, out, 1);
+    }
+
     ggml_tensor * matrix = ggml_reshape_2d(ctx, weight, kernel * in, out);
     for (int64_t base = 0; base < length; base += 1024) {
         const int64_t count = std::min<int64_t>(1024, length - base);
@@ -520,34 +582,52 @@ ggml_tensor * AudioTokenizerDecoder::max_conv(ggml_context * ctx, ggml_tensor * 
 }
 
 ggml_tensor * AudioTokenizerDecoder::max_depthwise_conv(ggml_context * ctx, ggml_tensor * weight,
-                                                        ggml_tensor * x) {
+                                                        ggml_tensor * x, bool channels_first) {
     const int64_t kernel = weight->ne[0], channels = weight->ne[2];
-    const int64_t length = x->ne[0] - kernel + 1;
-    GGML_ASSERT(length > 0 && x->ne[1] == channels && x->ne[2] == 1 &&
-                x->ne[3] == 1 && x->nb[0] == sizeof(float));
+    const int64_t x_len = channels_first ? x->ne[1] : x->ne[0];
+    const int64_t length = x_len - kernel + 1;
+    GGML_ASSERT(length > 0 && (channels_first ? x->ne[0] == channels : x->ne[1] == channels) &&
+                x->ne[2] == 1 && x->ne[3] == 1 && x->nb[0] == sizeof(float));
     ggml_tensor * result = nullptr;
     for (int64_t tap = 0; tap < kernel; ++tap) {
-        ggml_tensor * slice = ggml_view_3d(ctx, x, length, channels, 1,
-                                         x->nb[1], x->nb[2], tap * x->nb[0]);
-        slice = ggml_cast(ctx, ggml_cast(ctx, slice, GGML_TYPE_F16), GGML_TYPE_F32);
-        ggml_tensor * product = ggml_mul(ctx, slice, state_.max_taps.at(weight)[tap]);
-        result = result ? ggml_add(ctx, result, product) : product;
+        if (channels_first) {
+            ggml_tensor * slice = ggml_view_2d(ctx, x, channels, length, x->nb[1], tap * x->nb[1]);
+            slice = ggml_reshape_3d(ctx, slice, channels, length, 1);
+            ggml_tensor * tap_w = ggml_reshape_3d(ctx, state_.max_taps.at(weight)[tap], channels, 1, 1);
+            ggml_tensor * product = ggml_mul(ctx, slice, tap_w);
+            result = result ? ggml_add(ctx, result, product) : product;
+        } else {
+            ggml_tensor * slice = ggml_view_3d(ctx, x, length, channels, 1,
+                                             x->nb[1], x->nb[2], tap * x->nb[0]);
+            slice = ggml_cast(ctx, ggml_cast(ctx, slice, GGML_TYPE_F16), GGML_TYPE_F32);
+            ggml_tensor * product = ggml_mul(ctx, slice, state_.max_taps.at(weight)[tap]);
+            result = result ? ggml_add(ctx, result, product) : product;
+        }
     }
     return result;
 }
 
 // Polyphase transposed convolution, with constant tap matrices prepared once.
 ggml_tensor * AudioTokenizerDecoder::max_transpose_conv(ggml_context * ctx, ggml_tensor * weight,
-                                                        ggml_tensor * x, int stride) {
+                                                        ggml_tensor * x, int stride, bool channels_first) {
     const int64_t kernel = weight->ne[0], out = weight->ne[1], in = weight->ne[2];
-    GGML_ASSERT(stride > 0 && kernel >= stride && x->ne[0] > 0 && x->ne[1] == in &&
+    const int64_t x_len = channels_first ? x->ne[1] : x->ne[0];
+    GGML_ASSERT(stride > 0 && kernel >= stride && x_len > 0 &&
+                (channels_first ? x->ne[0] == in : x->ne[1] == in) &&
                 x->ne[2] == 1 && x->ne[3] == 1 && x->nb[0] == sizeof(float));
-    const int64_t length = (x->ne[0] - 1) * stride + kernel;
+    const int64_t length = (x_len - 1) * stride + kernel;
     const int64_t phase_length = (length + stride - 1) / stride;
     const int64_t halo = (kernel - 1) / stride;
-    ggml_tensor * padded = ggml_pad_ext(ctx, x, halo, halo + stride, 0, 0, 0, 0, 0, 0);
-    ggml_set_name(padded, "tconv_padded");
+    ggml_tensor * padded_ct = nullptr;
+    if (channels_first) {
+        padded_ct = ggml_pad_ext(ctx, x, 0, 0, halo, halo + stride, 0, 0, 0, 0);
+    } else {
+        ggml_tensor * padded = ggml_pad_ext(ctx, x, halo, halo + stride, 0, 0, 0, 0, 0, 0);
+        padded_ct = ggml_cont(ctx, ggml_transpose(ctx, padded));
+    }
+    ggml_set_name(padded_ct, "tconv_padded");
     std::vector<ggml_tensor *> tiles;
+    const auto & taps = state_.max_taps.at(weight);
     for (int64_t base = 0; base < phase_length; base += 1024) {
         const int64_t count = std::min<int64_t>(1024, phase_length - base);
         ggml_tensor * phases = nullptr;
@@ -555,53 +635,61 @@ ggml_tensor * AudioTokenizerDecoder::max_transpose_conv(ggml_context * ctx, ggml
             ggml_tensor * sum = nullptr;
             for (int64_t tap = phase; tap < kernel; tap += stride) {
                 const int64_t shift = tap / stride;
-                ggml_tensor * slice = ggml_view_2d(ctx, padded, count, in, padded->nb[1],
-                                                  (base + halo - shift) * padded->nb[0]);
-                slice = ggml_cont(ctx, ggml_transpose(ctx, slice));
+                ggml_tensor * slice = ggml_view_2d(ctx, padded_ct, in, count, padded_ct->nb[1],
+                                                  (base + halo - shift) * padded_ct->nb[1]);
                 // Activation must remain F32 for HTP HMX matmul kernels.
-                ggml_tensor * product = ggml_mul_mat(ctx, state_.max_taps.at(weight)[tap], slice);
+                ggml_tensor * product = ggml_mul_mat(ctx, taps[tap], slice);
                 sum = sum ? ggml_add(ctx, sum, product) : product;
             }
             GGML_ASSERT(sum);
-            sum = ggml_cont(ctx, ggml_transpose(ctx, sum));
-            sum = ggml_reshape_3d(ctx, sum, 1, count, out);
+            sum = ggml_reshape_3d(ctx, sum, out, 1, count);
             char pname[32]; snprintf(pname, sizeof(pname), "tconv_phase_%d", phase);
             ggml_set_name(sum, pname);
-            phases = phases ? ggml_concat(ctx, phases, sum, 0) : sum;
+            phases = phases ? ggml_concat(ctx, phases, sum, 1) : sum;
             char cname[32]; snprintf(cname, sizeof(cname), "tconv_concat_%d", phase);
             ggml_set_name(phases, cname);
         }
-        ggml_tensor * tile = ggml_reshape_2d(ctx, phases, stride * count, out);
+        ggml_tensor * tile = ggml_reshape_2d(ctx, phases, out, stride * count);
         tiles.push_back(tile);
     }
-    ggml_tensor * result = max_concat_tiles(ctx, std::move(tiles), 0);
-    result = ggml_view_2d(ctx, result, length, out, result->nb[1], 0);
-    return ggml_cont(ctx, result);
+    ggml_tensor * result = max_concat_tiles(ctx, std::move(tiles), 1);
+    result = ggml_view_2d(ctx, result, out, length, result->nb[1], 0);
+    return channels_first ? result : ggml_cont(ctx, ggml_transpose(ctx, result));
 }
 
 struct ggml_tensor * AudioTokenizerDecoder::apply_snake(struct ggml_context * ctx,
                                                           struct ggml_tensor * x,
                                                           struct ggml_tensor * alpha,
                                                           struct ggml_tensor * beta) {
+    if (state_.max_graph) {
+        const int64_t channels = x->ne[0];
+        struct ggml_tensor * alpha_3d = ggml_reshape_3d(ctx, state_.max_snake.at(alpha), channels, 1, 1);
+        struct ggml_tensor * ax = ggml_mul(ctx, x, alpha_3d);
+        struct ggml_tensor * sin_ax = ggml_sin(ctx, ax);
+        struct ggml_tensor * sin_sq = ggml_sqr(ctx, sin_ax);
+        struct ggml_tensor * inv_beta_3d = ggml_reshape_3d(ctx, state_.max_snake.at(beta), channels, 1, 1);
+        struct ggml_tensor * scaled_sin = ggml_mul(ctx, sin_sq, inv_beta_3d);
+        return ggml_add(ctx, x, scaled_sin);
+    }
+
     int64_t seq_len = x->ne[0];
     int64_t channels = x->ne[1];
     int64_t batch = x->ne[2];
     
-    struct ggml_tensor * alpha_exp = state_.max_graph ? state_.max_snake.at(alpha) : ggml_exp(ctx, alpha);
-    
+    struct ggml_tensor * alpha_exp = ggml_exp(ctx, alpha);
     struct ggml_tensor * alpha_3d = ggml_reshape_3d(ctx, alpha_exp, 1, channels, 1);
-    struct ggml_tensor * alpha_broad = state_.max_graph ? alpha_3d : ggml_repeat(ctx, alpha_3d,
-                                                    ggml_new_tensor_3d(ctx, GGML_TYPE_F32, seq_len, channels, batch));
+    struct ggml_tensor * alpha_broad = ggml_repeat(ctx, alpha_3d,
+                                                   ggml_new_tensor_3d(ctx, GGML_TYPE_F32, seq_len, channels, batch));
     
     struct ggml_tensor * ax = ggml_mul(ctx, x, alpha_broad);
     struct ggml_tensor * sin_ax = ggml_sin(ctx, ax);
     struct ggml_tensor * sin_sq = ggml_sqr(ctx, sin_ax);
     
     struct ggml_tensor * neg_beta = ggml_scale(ctx, beta, -1.0f);
-    struct ggml_tensor * inv_beta_exp = state_.max_graph ? state_.max_snake.at(beta) : ggml_exp(ctx, neg_beta);
+    struct ggml_tensor * inv_beta_exp = ggml_exp(ctx, neg_beta);
     struct ggml_tensor * inv_beta_3d = ggml_reshape_3d(ctx, inv_beta_exp, 1, channels, 1);
-    struct ggml_tensor * inv_beta = state_.max_graph ? inv_beta_3d : ggml_repeat(ctx, inv_beta_3d,
-                                                 ggml_new_tensor_3d(ctx, GGML_TYPE_F32, seq_len, channels, batch));
+    struct ggml_tensor * inv_beta = ggml_repeat(ctx, inv_beta_3d,
+                                                ggml_new_tensor_3d(ctx, GGML_TYPE_F32, seq_len, channels, batch));
     
     struct ggml_tensor * scaled_sin = ggml_mul(ctx, sin_sq, inv_beta);
     
@@ -707,13 +795,85 @@ struct ggml_tensor * AudioTokenizerDecoder::apply_upsample_block(struct ggml_con
                                                                   struct ggml_tensor * x,
                                                                   const upsample_block & block,
                                                                   int block_idx) {
-    int64_t seq_len = x->ne[0];
-    int64_t channels = x->ne[1];
     char prefix[16];
     snprintf(prefix, sizeof(prefix), "up%d_", block_idx);
+
+    if (state_.max_graph) {
+        const int64_t channels = x->ne[0];
+        const int64_t seq_len = x->ne[1];
+        struct ggml_tensor * x_2d = ggml_reshape_2d(ctx, x, channels, seq_len);
+        x_2d = max_transpose_conv(ctx, block.conv_w, x_2d, 2, true);
+        char name_conv_t[32]; snprintf(name_conv_t, sizeof(name_conv_t), "%sconv_t", prefix);
+        ggml_set_name(x_2d, name_conv_t);
+
+        const int64_t new_seq_len = x_2d->ne[1];
+        x = ggml_reshape_3d(ctx, x_2d, channels, new_seq_len, 1);
+        if (block.conv_b) {
+            x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.conv_b, channels, 1, 1));
+            char name_conv_b[32]; snprintf(name_conv_b, sizeof(name_conv_b), "%sconv_b", prefix);
+            ggml_set_name(x, name_conv_b);
+        }
+
+        struct ggml_tensor * residual = x;
+        if (block.dwconv_w) {
+            x = ggml_pad_ext(ctx, x, 0, 0, 6, 0, 0, 0, 0, 0);
+            char name_pad[32]; snprintf(name_pad, sizeof(name_pad), "%spad", prefix);
+            ggml_set_name(x, name_pad);
+
+            x = max_depthwise_conv(ctx, block.dwconv_w, x, true);
+            char name_dwconv[32]; snprintf(name_dwconv, sizeof(name_dwconv), "%sdwconv", prefix);
+            ggml_set_name(x, name_dwconv);
+
+            if (block.dwconv_b) {
+                x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.dwconv_b, channels, 1, 1));
+                char name_dwconv_b[32]; snprintf(name_dwconv_b, sizeof(name_dwconv_b), "%sdwconv_b", prefix);
+                ggml_set_name(x, name_dwconv_b);
+            }
+        }
+
+        if (block.norm_w && block.norm_b) {
+            x = ggml_norm(ctx, x, 1e-6f);
+            x = ggml_mul(ctx, x, block.norm_w);
+            x = ggml_add(ctx, x, block.norm_b);
+            char name_norm[32]; snprintf(name_norm, sizeof(name_norm), "%snorm", prefix);
+            ggml_set_name(x, name_norm);
+        }
+
+        x = ggml_mul_mat(ctx, block.pwconv1_w, x);
+        if (block.pwconv1_b) {
+            x = ggml_add(ctx, x, block.pwconv1_b);
+        }
+        char name_pw1[32]; snprintf(name_pw1, sizeof(name_pw1), "%spw1", prefix);
+        ggml_set_name(x, name_pw1);
+
+        x = ggml_gelu(ctx, x);
+        char name_gelu[32]; snprintf(name_gelu, sizeof(name_gelu), "%sgelu", prefix);
+        ggml_set_name(x, name_gelu);
+
+        x = ggml_mul_mat(ctx, block.pwconv2_w, x);
+        if (block.pwconv2_b) {
+            x = ggml_add(ctx, x, block.pwconv2_b);
+        }
+        char name_pw2[32]; snprintf(name_pw2, sizeof(name_pw2), "%spw2", prefix);
+        ggml_set_name(x, name_pw2);
+
+        if (block.gamma) {
+            x = ggml_mul(ctx, x, ggml_reshape_3d(ctx, block.gamma, channels, 1, 1));
+            char name_gamma[32]; snprintf(name_gamma, sizeof(name_gamma), "%sgamma", prefix);
+            ggml_set_name(x, name_gamma);
+        }
+
+        struct ggml_tensor * res_out = ggml_add(ctx, residual, x);
+        char name_out[32]; snprintf(name_out, sizeof(name_out), "%sout", prefix);
+        ggml_set_name(res_out, name_out);
+        return res_out;
+    }
+
+    int64_t seq_len = x->ne[0];
+    int64_t channels = x->ne[1];
     
     struct ggml_tensor * x_2d = ggml_reshape_2d(ctx, x, seq_len, channels);
-    x_2d = (state_.max_graph ? max_transpose_conv(ctx, block.conv_w, x_2d, 2) : ggml_conv_transpose_1d(ctx, block.conv_w, x_2d, 2, 0, 1));
+    x_2d = ggml_conv_transpose_1d(ctx, block.conv_w, x_2d, 2, 0, 1);
     char name_conv_t[32]; snprintf(name_conv_t, sizeof(name_conv_t), "%sconv_t", prefix);
     ggml_set_name(x_2d, name_conv_t);
      
@@ -734,7 +894,7 @@ struct ggml_tensor * AudioTokenizerDecoder::apply_upsample_block(struct ggml_con
         char name_pad[32]; snprintf(name_pad, sizeof(name_pad), "%spad", prefix);
         ggml_set_name(x, name_pad);
 
-        x = (state_.max_graph ? max_depthwise_conv(ctx, block.dwconv_w, x) : ggml_conv_1d_dw(ctx, block.dwconv_w, x, 1, 0, 1));  // no padding in conv
+        x = ggml_conv_1d_dw(ctx, block.dwconv_w, x, 1, 0, 1);  // no padding in conv
         char name_dwconv[32]; snprintf(name_dwconv, sizeof(name_dwconv), "%sdwconv", prefix);
         ggml_set_name(x, name_dwconv);
 
@@ -803,9 +963,32 @@ struct ggml_tensor * AudioTokenizerDecoder::apply_residual_block(struct ggml_con
     
     int64_t out_channels = block.conv1_w->ne[2];
     int padding = 6 * block.dilation;
+    if (state_.max_graph) {
+        x = ggml_pad_ext(ctx, x, 0, 0, padding, 0, 0, 0, 0, 0);
+        ggml_set_name(x, "r_pad");
+        x = max_conv(ctx, block.conv1_w, x, block.dilation, true);
+        if (block.conv1_b) {
+            x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.conv1_b, out_channels, 1, 1));
+        }
+        ggml_set_name(x, "r_conv1");
+
+        if (block.act2_alpha) {
+            x = apply_snake(ctx, x, block.act2_alpha, block.act2_beta);
+            ggml_set_name(x, "r_act2");
+        }
+
+        out_channels = block.conv2_w->ne[2];
+        x = max_conv(ctx, block.conv2_w, x, 1, true);
+        if (block.conv2_b) {
+            x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.conv2_b, out_channels, 1, 1));
+        }
+        ggml_set_name(x, "r_conv2");
+        return ggml_add(ctx, residual, x);
+    }
+
     x = ggml_pad_ext(ctx, x, padding, 0, 0, 0, 0, 0, 0, 0);
     ggml_set_name(x, "r_pad");
-    x = (state_.max_graph ? max_conv(ctx, block.conv1_w, x, block.dilation) : ggml_conv_1d(ctx, block.conv1_w, x, 1, 0, block.dilation));
+    x = ggml_conv_1d(ctx, block.conv1_w, x, 1, 0, block.dilation);
     if (block.conv1_b) {
         x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.conv1_b, 1, out_channels, 1));
     }
@@ -817,7 +1000,7 @@ struct ggml_tensor * AudioTokenizerDecoder::apply_residual_block(struct ggml_con
     }
     
     out_channels = block.conv2_w->ne[2];
-    x = (state_.max_graph ? max_conv(ctx, block.conv2_w, x, 1) : ggml_conv_1d(ctx, block.conv2_w, x, 1, 0, 1));
+    x = ggml_conv_1d(ctx, block.conv2_w, x, 1, 0, 1);
     if (block.conv2_b) {
         x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.conv2_b, 1, out_channels, 1));
     }
@@ -835,31 +1018,44 @@ struct ggml_tensor * AudioTokenizerDecoder::apply_decoder_block(struct ggml_cont
         ggml_set_name(x, "dec_blk_snake");
     }
     
-     int64_t seq_len = x->ne[0];
-     int64_t in_channels = x->ne[1];
-     int64_t out_channels = block.conv_t_w->ne[1];
-     int kernel_size = block.conv_t_w->ne[0];
-     
-     struct ggml_tensor * x_2d = ggml_reshape_2d(ctx, x, seq_len, in_channels);
-     x_2d = (state_.max_graph ? max_transpose_conv(ctx, block.conv_t_w, x_2d, upsample_rate) : ggml_conv_transpose_1d(ctx, block.conv_t_w, x_2d, upsample_rate, 0, 1));
-     ggml_set_name(x_2d, "dec_blk_tconv");
-     
-     int64_t new_seq_len = x_2d->ne[0];
-     x = ggml_reshape_3d(ctx, x_2d, new_seq_len, out_channels, 1);
-     
-      // Python CausalTransConvNet: only strips right_pad = kernel_size - stride
-      int pad = kernel_size - upsample_rate;
-      int right_pad = pad;
-      int64_t out_seq_len = new_seq_len - right_pad;
-      
-      x = ggml_view_3d(ctx, x, out_seq_len, out_channels, 1,
-                       x->nb[1], x->nb[2], 0);
-     x = ggml_cont(ctx, x);
-     
-     if (block.conv_t_b) {
-         x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.conv_t_b, 1, out_channels, 1));
-     }
-     ggml_set_name(x, "dec_blk_tconv_out");
+    int64_t out_channels = block.conv_t_w->ne[1];
+    int kernel_size = block.conv_t_w->ne[0];
+    int right_pad = kernel_size - upsample_rate;
+
+    if (state_.max_graph) {
+        int64_t in_channels = x->ne[0];
+        int64_t seq_len = x->ne[1];
+        struct ggml_tensor * x_2d = ggml_reshape_2d(ctx, x, in_channels, seq_len);
+        x_2d = max_transpose_conv(ctx, block.conv_t_w, x_2d, upsample_rate, true);
+        ggml_set_name(x_2d, "dec_blk_tconv");
+
+        int64_t out_seq_len = x_2d->ne[1] - right_pad;
+        x_2d = ggml_view_2d(ctx, x_2d, out_channels, out_seq_len, x_2d->nb[1], 0);
+        x = ggml_reshape_3d(ctx, x_2d, out_channels, out_seq_len, 1);
+        if (block.conv_t_b) {
+            x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.conv_t_b, out_channels, 1, 1));
+        }
+        ggml_set_name(x, "dec_blk_tconv_out");
+    } else {
+        int64_t seq_len = x->ne[0];
+        int64_t in_channels = x->ne[1];
+        struct ggml_tensor * x_2d = ggml_reshape_2d(ctx, x, seq_len, in_channels);
+        x_2d = ggml_conv_transpose_1d(ctx, block.conv_t_w, x_2d, upsample_rate, 0, 1);
+        ggml_set_name(x_2d, "dec_blk_tconv");
+        
+        int64_t new_seq_len = x_2d->ne[0];
+        x = ggml_reshape_3d(ctx, x_2d, new_seq_len, out_channels, 1);
+        
+        int64_t out_seq_len = new_seq_len - right_pad;
+        x = ggml_view_3d(ctx, x, out_seq_len, out_channels, 1,
+                         x->nb[1], x->nb[2], 0);
+        x = ggml_cont(ctx, x);
+        
+        if (block.conv_t_b) {
+            x = ggml_add(ctx, x, ggml_reshape_3d(ctx, block.conv_t_b, 1, out_channels, 1));
+        }
+        ggml_set_name(x, "dec_blk_tconv_out");
+    }
     
     for (int i = 0; i < 3; ++i) {
         x = apply_residual_block(ctx, x, block.res[i]);
@@ -899,13 +1095,15 @@ struct ggml_cgraph * AudioTokenizerDecoder::build_graph(int32_t n_frames) {
     
     struct ggml_tensor * first_codes = cb_codes_tensors[0];
     
-     struct ggml_tensor * first_emb = ggml_get_rows(ctx0, model_.vq_first_codebook, first_codes);
+     struct ggml_tensor * first_cb_w = state_.max_graph ? state_.max_codebooks.at(model_.vq_first_codebook) : model_.vq_first_codebook;
+     struct ggml_tensor * first_emb = ggml_get_rows(ctx0, first_cb_w, first_codes);
      ggml_set_name(first_emb, "first_emb_raw");
      
      struct ggml_tensor * rest_emb[15];
      for (int cb = 0; cb < 15; ++cb) {
          struct ggml_tensor * cb_codes = cb_codes_tensors[cb + 1];
-         rest_emb[cb] = ggml_get_rows(ctx0, model_.vq_rest_codebook[cb], cb_codes);
+         struct ggml_tensor * rest_cb_w = state_.max_graph ? state_.max_codebooks.at(model_.vq_rest_codebook[cb]) : model_.vq_rest_codebook[cb];
+         rest_emb[cb] = ggml_get_rows(ctx0, rest_cb_w, cb_codes);
          
          if (cb == 0) {
              ggml_set_name(rest_emb[cb], "rest_cb0_emb_raw");
@@ -935,111 +1133,144 @@ struct ggml_cgraph * AudioTokenizerDecoder::build_graph(int32_t n_frames) {
      struct ggml_tensor * latent_2d = ggml_add(ctx0, first_proj_2d, rest_proj_2d);
      ggml_set_name(latent_2d, "latent_2d");
      
-     struct ggml_tensor * latent_t = ggml_transpose(ctx0, latent_2d);
-     ggml_set_name(latent_t, "latent_t");
-     
-     struct ggml_tensor * latent_cont = ggml_cont(ctx0, latent_t);
-     ggml_set_name(latent_cont, "latent_cont");
-     
-     struct ggml_tensor * latent = ggml_reshape_3d(ctx0, latent_cont, n_frames, cfg.hidden_dim, 1);
-
-     ggml_set_name(latent, "vq_output");
-    
-    struct ggml_tensor * latent_for_conv = ggml_cont(ctx0, latent);
-    struct ggml_tensor * latent_padded = ggml_pad_ext(ctx0, latent_for_conv, 2, 0, 0, 0, 0, 0, 0, 0);
-     struct ggml_tensor * cur = (state_.max_graph ? max_conv(ctx0, model_.pre_conv_w, latent_padded) : ggml_conv_1d(ctx0, model_.pre_conv_w, latent_padded, 1, 0, 1));
-     if (model_.pre_conv_b) {
-         cur = ggml_add(ctx0, cur, ggml_reshape_3d(ctx0, model_.pre_conv_b, 1, cfg.latent_dim, 1));
-     }
-     
-     ggml_set_name(cur, "pre_conv_output");
-     
-     struct ggml_tensor * cur_2d = ggml_reshape_2d(ctx0, cur, n_frames, cfg.latent_dim);
-     struct ggml_tensor * cur_t = ggml_transpose(ctx0, cur_2d);
-     cur = ggml_cont(ctx0, cur_t);
-     
-     ggml_set_name(cur, "pre_conv_reshaped");
-     
-     cur = ggml_mul_mat(ctx0, model_.pre_tfm_input_proj_w, cur);
-     if (model_.pre_tfm_input_proj_b) {
-         cur = ggml_add(ctx0, cur, model_.pre_tfm_input_proj_b);
-     }
-     
-     ggml_set_name(cur, "pre_tfm_input");
-    
-    struct ggml_tensor * positions = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_frames);
-    ggml_set_name(positions, "positions");
-    ggml_set_input(positions);
-    
-     ggml_tensor * causal_mask = nullptr;
+     struct ggml_tensor * cur = nullptr;
      if (state_.max_graph) {
-         const int mask_rows = ((n_frames + 31) / 32) * 32;
-         causal_mask = ggml_new_tensor_2d(ctx0, GGML_TYPE_F16, n_frames, mask_rows);
-         ggml_set_name(causal_mask, "vocoder_causal_mask");
-         ggml_set_input(causal_mask);
+         struct ggml_tensor * latent = ggml_reshape_3d(ctx0, latent_2d, cfg.hidden_dim, n_frames, 1);
+         ggml_set_name(latent, "vq_output");
+         struct ggml_tensor * latent_padded = ggml_pad_ext(ctx0, latent, 0, 0, 2, 0, 0, 0, 0, 0);
+         cur = max_conv(ctx0, model_.pre_conv_w, latent_padded, 1, true);
+         if (model_.pre_conv_b) {
+             cur = ggml_add(ctx0, cur, ggml_reshape_3d(ctx0, model_.pre_conv_b, cfg.latent_dim, 1, 1));
+         }
+         ggml_set_name(cur, "pre_conv_output");
+         cur = ggml_reshape_2d(ctx0, cur, cfg.latent_dim, n_frames);
+         ggml_set_name(cur, "pre_conv_reshaped");
+     } else {
+         struct ggml_tensor * latent_t = ggml_transpose(ctx0, latent_2d);
+         ggml_set_name(latent_t, "latent_t");
+         
+         struct ggml_tensor * latent_cont = ggml_cont(ctx0, latent_t);
+         ggml_set_name(latent_cont, "latent_cont");
+         
+         struct ggml_tensor * latent = ggml_reshape_3d(ctx0, latent_cont, n_frames, cfg.hidden_dim, 1);
+         ggml_set_name(latent, "vq_output");
+        
+         struct ggml_tensor * latent_for_conv = ggml_cont(ctx0, latent);
+         struct ggml_tensor * latent_padded = ggml_pad_ext(ctx0, latent_for_conv, 2, 0, 0, 0, 0, 0, 0, 0);
+         cur = ggml_conv_1d(ctx0, model_.pre_conv_w, latent_padded, 1, 0, 1);
+         if (model_.pre_conv_b) {
+             cur = ggml_add(ctx0, cur, ggml_reshape_3d(ctx0, model_.pre_conv_b, 1, cfg.latent_dim, 1));
+         }
+         ggml_set_name(cur, "pre_conv_output");
+         
+         struct ggml_tensor * cur_2d = ggml_reshape_2d(ctx0, cur, n_frames, cfg.latent_dim);
+         struct ggml_tensor * cur_t = ggml_transpose(ctx0, cur_2d);
+         cur = ggml_cont(ctx0, cur_t);
+         ggml_set_name(cur, "pre_conv_reshaped");
      }
-     for (int i = 0; i < cfg.n_pre_tfm_layers; ++i) {
-         cur = apply_pre_tfm_layer(ctx0, cur, model_.pre_tfm_layers[i], n_frames, positions, causal_mask);
-     }
+      
+      cur = ggml_mul_mat(ctx0, model_.pre_tfm_input_proj_w, cur);
+      if (model_.pre_tfm_input_proj_b) {
+          cur = ggml_add(ctx0, cur, model_.pre_tfm_input_proj_b);
+      }
+      
+      ggml_set_name(cur, "pre_tfm_input");
      
-     if (model_.pre_tfm_norm_w) {
-         cur = apply_rms_norm(ctx0, cur, model_.pre_tfm_norm_w, cfg.rms_norm_eps);
-     }
+     struct ggml_tensor * positions = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_frames);
+     ggml_set_name(positions, "positions");
+     ggml_set_input(positions);
      
-     cur = ggml_mul_mat(ctx0, model_.pre_tfm_output_proj_w, cur);
-     if (model_.pre_tfm_output_proj_b) {
-         cur = ggml_add(ctx0, cur, model_.pre_tfm_output_proj_b);
-     }
+      ggml_tensor * causal_mask = nullptr;
+      if (state_.max_graph) {
+          const int mask_rows = ((n_frames + 31) / 32) * 32;
+          causal_mask = ggml_new_tensor_2d(ctx0, GGML_TYPE_F16, n_frames, mask_rows);
+          ggml_set_name(causal_mask, "vocoder_causal_mask");
+          ggml_set_input(causal_mask);
+      }
+      for (int i = 0; i < cfg.n_pre_tfm_layers; ++i) {
+          cur = apply_pre_tfm_layer(ctx0, cur, model_.pre_tfm_layers[i], n_frames, positions, causal_mask);
+      }
+      
+      if (model_.pre_tfm_norm_w) {
+          cur = apply_rms_norm(ctx0, cur, model_.pre_tfm_norm_w, cfg.rms_norm_eps);
+      }
+      
+      cur = ggml_mul_mat(ctx0, model_.pre_tfm_output_proj_w, cur);
+      if (model_.pre_tfm_output_proj_b) {
+          cur = ggml_add(ctx0, cur, model_.pre_tfm_output_proj_b);
+      }
+      
+      ggml_set_name(cur, "pre_tfm_output");
      
-     ggml_set_name(cur, "pre_tfm_output");
-    
-    cur = ggml_permute(ctx0, cur, 1, 0, 2, 3);
-     cur = ggml_cont(ctx0, cur);
-     cur = ggml_reshape_3d(ctx0, cur, n_frames, cfg.latent_dim, 1);
+      if (state_.max_graph) {
+          cur = ggml_reshape_3d(ctx0, cur, cfg.latent_dim, n_frames, 1);
+      } else {
+          cur = ggml_permute(ctx0, cur, 1, 0, 2, 3);
+          cur = ggml_cont(ctx0, cur);
+          cur = ggml_reshape_3d(ctx0, cur, n_frames, cfg.latent_dim, 1);
+      }
+      
+      ggml_set_name(cur, "pre_tfm_reshaped");
      
-     ggml_set_name(cur, "pre_tfm_reshaped");
-    
-     for (int i = 0; i < 2; ++i) {
-         cur = apply_upsample_block(ctx0, cur, model_.upsample[i], i);
-     }
-     
-     ggml_set_name(cur, "upsample_output");
-     
-     // Causal padding: left pad with 6 (kernel_size - 1 = 7 - 1 = 6)
-     cur = ggml_pad_ext(ctx0, cur, 6, 0, 0, 0, 0, 0, 0, 0);
-     cur = (state_.max_graph ? max_conv(ctx0, model_.dec0_conv_w, cur) : ggml_conv_1d(ctx0, model_.dec0_conv_w, cur, 1, 0, 1));
-     if (model_.dec0_conv_b) {
-         cur = ggml_add(ctx0, cur, ggml_reshape_3d(ctx0, model_.dec0_conv_b, 1, cfg.decoder_dim, 1));
-     }
-     
-     ggml_set_name(cur, "dec0_output");
-     
-     int upsample_rates[4] = {8, 5, 4, 3};
-     for (int i = 0; i < 4; ++i) {
-         cur = apply_decoder_block(ctx0, cur, model_.dec_blocks[i], upsample_rates[i]);
-         char name[32];
-         snprintf(name, sizeof(name), "dec%d_output", i + 1);
-         ggml_set_name(cur, name);
-     }
-     
-     if (model_.dec5_snake_alpha) {
-         cur = apply_snake(ctx0, cur, model_.dec5_snake_alpha, model_.dec5_snake_beta);
-     }
-     
-     ggml_set_name(cur, "dec5_output");
-     
-     // Causal padding: left pad with 6 (kernel_size - 1 = 7 - 1 = 6)
-     cur = ggml_pad_ext(ctx0, cur, 6, 0, 0, 0, 0, 0, 0, 0);
-     cur = (state_.max_graph ? max_conv(ctx0, model_.dec6_conv_w, cur) : ggml_conv_1d(ctx0, model_.dec6_conv_w, cur, 1, 0, 1));
-     if (model_.dec6_conv_b) {
-         cur = ggml_add(ctx0, cur, ggml_reshape_3d(ctx0, model_.dec6_conv_b, 1, 1, 1));
-     }
-     
-     ggml_set_name(cur, "dec6_output");
-    
-    cur = ggml_tanh(ctx0, cur);
-    
-    cur = ggml_reshape_1d(ctx0, cur, cur->ne[0]);
+      for (int i = 0; i < 2; ++i) {
+          cur = apply_upsample_block(ctx0, cur, model_.upsample[i], i);
+      }
+      
+      ggml_set_name(cur, "upsample_output");
+      
+      // Causal padding: left pad with 6 (kernel_size - 1 = 7 - 1 = 6)
+      if (state_.max_graph) {
+          cur = ggml_pad_ext(ctx0, cur, 0, 0, 6, 0, 0, 0, 0, 0);
+          cur = max_conv(ctx0, model_.dec0_conv_w, cur, 1, true);
+          if (model_.dec0_conv_b) {
+              cur = ggml_add(ctx0, cur, ggml_reshape_3d(ctx0, model_.dec0_conv_b, cfg.decoder_dim, 1, 1));
+          }
+      } else {
+          cur = ggml_pad_ext(ctx0, cur, 6, 0, 0, 0, 0, 0, 0, 0);
+          cur = ggml_conv_1d(ctx0, model_.dec0_conv_w, cur, 1, 0, 1);
+          if (model_.dec0_conv_b) {
+              cur = ggml_add(ctx0, cur, ggml_reshape_3d(ctx0, model_.dec0_conv_b, 1, cfg.decoder_dim, 1));
+          }
+      }
+      
+      ggml_set_name(cur, "dec0_output");
+      
+      int upsample_rates[4] = {8, 5, 4, 3};
+      for (int i = 0; i < 4; ++i) {
+          cur = apply_decoder_block(ctx0, cur, model_.dec_blocks[i], upsample_rates[i]);
+          char name[32];
+          snprintf(name, sizeof(name), "dec%d_output", i + 1);
+          ggml_set_name(cur, name);
+      }
+      
+      if (model_.dec5_snake_alpha) {
+          cur = apply_snake(ctx0, cur, model_.dec5_snake_alpha, model_.dec5_snake_beta);
+      }
+      
+      ggml_set_name(cur, "dec5_output");
+      
+      // Causal padding: left pad with 6 (kernel_size - 1 = 7 - 1 = 6)
+      if (state_.max_graph) {
+          cur = ggml_pad_ext(ctx0, cur, 0, 0, 6, 0, 0, 0, 0, 0);
+          cur = max_conv(ctx0, model_.dec6_conv_w, cur, 1, true);
+          const int64_t total_samples = cur->ne[1];
+          cur = ggml_reshape_2d(ctx0, cur, 1920, n_frames);
+          if (model_.dec6_conv_b) {
+              cur = ggml_add(ctx0, cur, ggml_reshape_2d(ctx0, model_.dec6_conv_b, 1, 1));
+          }
+          ggml_set_name(cur, "dec6_output");
+          cur = ggml_tanh(ctx0, cur);
+          cur = ggml_reshape_1d(ctx0, cur, total_samples);
+      } else {
+          cur = ggml_pad_ext(ctx0, cur, 6, 0, 0, 0, 0, 0, 0, 0);
+          cur = ggml_conv_1d(ctx0, model_.dec6_conv_w, cur, 1, 0, 1);
+          if (model_.dec6_conv_b) {
+              cur = ggml_add(ctx0, cur, ggml_reshape_3d(ctx0, model_.dec6_conv_b, 1, 1, 1));
+          }
+          ggml_set_name(cur, "dec6_output");
+          cur = ggml_tanh(ctx0, cur);
+          cur = ggml_reshape_1d(ctx0, cur, cur->ne[0]);
+      }
     
     ggml_set_name(cur, "audio");
     ggml_set_output(cur);
@@ -1064,24 +1295,42 @@ bool AudioTokenizerDecoder::decode(const int32_t * codes, int32_t n_frames,
         return false;
     }
 
-    // Chunking to prevent exceeding Hexagon 8 MiB VTCM per-row buffer limits.
-    const int32_t chunk_limit = state_.max_graph ? 16 : 100;
+    // In [channels, time] NPU-Max layout, ne[0] <= 1920 regardless of frame count,
+    // so up to 100 frames (8.0s) runs in a single un-chunked pass. For >100 frames,
+    // prepend 16 frames of causal overlap context so chunk boundaries have zero pitch/phase dip.
+    const int32_t chunk_limit = 100;
+    const int32_t left_context = 16;
+    const int32_t chunk_step = chunk_limit - left_context;
     if (n_frames > chunk_limit) {
         samples.clear();
         samples.reserve((size_t)n_frames * 1920);
-        for (int32_t base = 0; base < n_frames; base += chunk_limit) {
-            int32_t this_chunk = std::min(chunk_limit, n_frames - base);
+        for (int32_t base = 0; base < n_frames; base += chunk_step) {
+            int32_t ctx_frames = std::min(left_context, base);
+            int32_t this_chunk = std::min(chunk_step, n_frames - base);
             std::vector<float> chunk_samples;
-            if (!decode(codes + (size_t)base * 16, this_chunk, chunk_samples)) {
+            if (!decode(codes + (size_t)(base - ctx_frames) * 16, ctx_frames + this_chunk, chunk_samples)) {
                 return false;
             }
-            samples.insert(samples.end(), chunk_samples.begin(), chunk_samples.end());
+            const size_t skip_samples = (size_t)ctx_frames * 1920;
+            if (chunk_samples.size() > skip_samples) {
+                samples.insert(samples.end(), chunk_samples.begin() + skip_samples, chunk_samples.end());
+            }
         }
         return true;
     }
     int64_t t_start = ggml_time_us();
     struct ggml_cgraph * gf = build_graph(n_frames);
     int64_t t_graph = ggml_time_us();
+    if (state_.max_graph && state_.backend) {
+        for (int i = 0; i < ggml_graph_n_nodes(gf); ++i) {
+            struct ggml_tensor * node = ggml_graph_node(gf, i);
+            for (int s = 0; s < GGML_MAX_SRC; ++s) {
+                if (node->src[s] && (node->src[s]->flags & GGML_TENSOR_FLAG_INPUT)) {
+                    ggml_backend_sched_set_tensor_backend(state_.sched, node->src[s], state_.backend);
+                }
+            }
+        }
+    }
     
     if (!ggml_backend_sched_alloc_graph(state_.sched, gf)) {
         error_msg_ = "Failed to allocate graph";

@@ -53,7 +53,10 @@ int main(int argc, char **argv) {
             if (fwrite(audio.data()+skip,4,audio.size()-skip,stdout) != audio.size()-skip || fflush(stdout)) return false;
             fprintf(stderr,"PIPELINE_CHUNK frames=%d prefix_frames=%d\n",frames-emitted,frames);
             emitted=frames;
-            if (frames == 100) { codes.clear(); emitted=0; }
+            if (frames == 100) {
+                codes.erase(codes.begin(), codes.begin() + (frames - 16) * 16);
+                emitted = 16;
+            }
             return true;
         };
         int32_t row[16];

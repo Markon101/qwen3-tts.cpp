@@ -8,7 +8,7 @@ export ADSP_LIBRARY_PATH="$LIB_DIR/ggml-hexagon"
 export OCL_ICD_VENDORS=/vendor/lib64/libOpenCL.so
 # Legacy GGML's hostbuf default would leave Q8 matrix products on CPU.
 export GGML_HEXAGON_HOSTBUF=0
-export GGML_HEXAGON_NHVX=${GGML_HEXAGON_NHVX:-4}
+export GGML_HEXAGON_NHVX=${GGML_HEXAGON_NHVX:-6}
 export GGML_HEXAGON_OPPOLL=${GGML_HEXAGON_OPPOLL:-1}
 export GGML_HEXAGON_PROFILE=${GGML_HEXAGON_PROFILE:-0}
 export GGML_OPENCL_BINARY_CACHE_DIR=${GGML_OPENCL_BINARY_CACHE_DIR:-"$REPO_DIR/.cache/adreno830-opencl"}
