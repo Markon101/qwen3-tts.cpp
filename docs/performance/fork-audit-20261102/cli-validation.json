@@ -1,0 +1,140 @@
+{
+  "tests": 19,
+  "passed": 19,
+  "hardware_execution": false,
+  "results": [
+    {
+      "value": "17",
+      "accepted_value": true,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Error: model directory required (-m)"
+    },
+    {
+      "value": "100",
+      "accepted_value": true,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Error: model directory required (-m)"
+    },
+    {
+      "value": "128",
+      "accepted_value": true,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Error: model directory required (-m)"
+    },
+    {
+      "value": "200",
+      "accepted_value": true,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Error: model directory required (-m)"
+    },
+    {
+      "value": "256",
+      "accepted_value": true,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Error: model directory required (-m)"
+    },
+    {
+      "value": "0",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Error: --vocoder-chunk-frames must be an integer from 17 to 256"
+    },
+    {
+      "value": "-1",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Error: --vocoder-chunk-frames must be an integer from 17 to 256"
+    },
+    {
+      "value": "16",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Error: --vocoder-chunk-frames must be an integer from 17 to 256"
+    },
+    {
+      "value": "257",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Error: --vocoder-chunk-frames must be an integer from 17 to 256"
+    },
+    {
+      "value": "1024",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Error: --vocoder-chunk-frames must be an integer from 17 to 256"
+    },
+    {
+      "value": "1.5",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Invalid integer for --vocoder-chunk-frames: 1.5"
+    },
+    {
+      "value": "200junk",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Invalid integer for --vocoder-chunk-frames: 200junk"
+    },
+    {
+      "value": "4294967396",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Invalid integer for --vocoder-chunk-frames: 4294967396"
+    },
+    {
+      "value": "2147483648",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Invalid integer for --vocoder-chunk-frames: 2147483648"
+    },
+    {
+      "value": "999999999999999999999999",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Invalid integer for --vocoder-chunk-frames: 999999999999999999999999"
+    },
+    {
+      "value": "nan",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Invalid integer for --vocoder-chunk-frames: nan"
+    },
+    {
+      "value": "inf",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Invalid integer for --vocoder-chunk-frames: inf"
+    },
+    {
+      "value": "",
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Invalid integer for --vocoder-chunk-frames: "
+    },
+    {
+      "value": null,
+      "accepted_value": false,
+      "pass": true,
+      "exit_code": 1,
+      "message": "Missing value for --vocoder-chunk-frames"
+    }
+  ]
+}

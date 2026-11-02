@@ -2,6 +2,13 @@
 
 Coding conventions and architecture guide for AI agents working on this codebase.
 
+## Fork audit and continuation
+
+Before changing the Android/NPU-Max fork, read [docs/FORK_AUDIT.md](docs/FORK_AUDIT.md).
+It records the current controls, reusable check commands, tested scopes, larger
+vocoder-window option, known bugs, and evidence paths. Select checks relevant to
+the change; do not interpret old results as verification of a new checkout.
+
 ## Project Overview
 
 `qwen3-tts.cpp` is a pure C++17 implementation of the Qwen3-TTS text-to-speech pipeline using GGML. It converts text to speech through four stages: tokenization, speaker encoding, transformer code generation, and vocoder decoding.

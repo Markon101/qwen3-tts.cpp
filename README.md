@@ -158,6 +158,7 @@ For 1.7B, talker hidden=2048 is projected to code predictor hidden=1024 via `sma
 | `--sub-temperature` | -1 | Code predictor temp (-1 = inherit) |
 | `--sub-top-k` | -1 | Code predictor top-k (-1 = inherit) |
 | `--sub-top-p` | -1 | Code predictor top-p (-1 = inherit) |
+| `--vocoder-chunk-frames <n>` | 100 | Vocoder graph window including overlap (17–256 frames); [tradeoffs and audit](docs/FORK_AUDIT.md) |
 | `--output-rate <hz>` | 24000 | Resample output (e.g. 48000) |
 | `--non-streaming` | — | Non-streaming prefill layout |
 | `-j, --threads <n>` | auto | CPU threads |

@@ -1,0 +1,291 @@
+{
+  "app_head": "24bf4043b58bdc4cb32f431f4e1f89a1bcd16fd4",
+  "ggml_head": "a1ff3917ed1b31deac8b96f04a62afd89a15faa6",
+  "files": {
+    ".cache/npu-max/app-build/qwen3-tts-cli": "1143b524454af825a38a3171fa0f723f4bb4cd857a1e756e005b90003eafa8fb",
+    ".cache/npu-max/app-build/tools/npu/npu-max-pipeline-stage": "141528b1d0f0da6c769e7e1beb3837d3b9e60c1936bfd3c8ddfb1c3b021b2b49",
+    ".cache/npu-max/build/src/ggml-hexagon/libggml-htp-v79.so": "495048455b9a624fec1feb84d5951b6d57f104c63e81dc8a354df250418b2444",
+    "../../models/qwen3-tts-tokenizer-f16-f32.gguf": "251363c2b816ec71765db86dc4e9f608943170b24506d03dfc757f420f043a19"
+  },
+  "audit_utc_date": "2026-11-02",
+  "scope": "Controllable vocoder windows and correctness audit; no performance benchmark or listening validation.",
+  "scheduling_note": "All historical performance tests in docs/NPU_MAX_BACKEND_AUDIT.md and the ordinary timing instrumentation in this audit were taken while Termux was in the background (Android background scheduling restricts CPU/host clocks and cpuset while HTP runs on the DSP). Re-measure in verified foreground (/top-app) before making latency or speedup claims.",
+  "memory_note": "No controlled RAM/energy comparison; larger graph allocation succeeded in tested processes.",
+  "checks": {
+    "application_build": "passed",
+    "launcher_tests": 184,
+    "launcher_passed": 184,
+    "cli_tests": 19,
+    "cli_passed": 19,
+    "qaic_cache_checks": 7,
+    "qaic_cache_passed": 7
+  },
+  "htp": [
+    {
+      "comparison": "window100_vs_full256",
+      "start_sample": 0,
+      "nrmse": 0.2062517,
+      "max_abs": 0.150411963
+    },
+    {
+      "comparison": "window100_after_boundary",
+      "start_sample": 161280,
+      "nrmse": 0.248455996,
+      "max_abs": 0.150411963
+    },
+    {
+      "comparison": "window200_vs_full256",
+      "start_sample": 0,
+      "nrmse": 0.182902387,
+      "max_abs": 0.152549505
+    },
+    {
+      "comparison": "window200_after_boundary",
+      "start_sample": 353280,
+      "nrmse": 0.328601934,
+      "max_abs": 0.152549505
+    },
+    {
+      "pass": true,
+      "backend": "hexagon",
+      "seed_frames": 16,
+      "test_frames": 256,
+      "longer_frames": 257,
+      "callback_calls": 2,
+      "default_bit_exact": true,
+      "callback_bit_exact": true,
+      "scope": "repeated saved codes; numerical checks, not listening or speed"
+    }
+  ],
+  "cpu": [
+    {
+      "comparison": "window100_vs_full256",
+      "start_sample": 0,
+      "nrmse": 0.206151617,
+      "max_abs": 0.150587246
+    },
+    {
+      "comparison": "window100_after_boundary",
+      "start_sample": 161280,
+      "nrmse": 0.248343812,
+      "max_abs": 0.150587246
+    },
+    {
+      "comparison": "window200_vs_full256",
+      "start_sample": 0,
+      "nrmse": 0.182559743,
+      "max_abs": 0.152554318
+    },
+    {
+      "comparison": "window200_after_boundary",
+      "start_sample": 353280,
+      "nrmse": 0.32801551,
+      "max_abs": 0.152554318
+    },
+    {
+      "pass": true,
+      "backend": "cpu",
+      "seed_frames": 16,
+      "test_frames": 256,
+      "longer_frames": 257,
+      "callback_calls": 2,
+      "default_bit_exact": true,
+      "callback_bit_exact": true,
+      "scope": "repeated saved codes; numerical checks, not listening or speed"
+    }
+  ],
+  "opencl": [
+    {
+      "comparison": "window100_vs_full256",
+      "start_sample": 0,
+      "nrmse": 0.206363487,
+      "max_abs": 0.150452398
+    },
+    {
+      "comparison": "window100_after_boundary",
+      "start_sample": 161280,
+      "nrmse": 0.248587398,
+      "max_abs": 0.150452398
+    },
+    {
+      "comparison": "window200_vs_full256",
+      "start_sample": 0,
+      "nrmse": 0.183078103,
+      "max_abs": 0.152981848
+    },
+    {
+      "comparison": "window200_after_boundary",
+      "start_sample": 353280,
+      "nrmse": 0.328908351,
+      "max_abs": 0.152981848
+    },
+    {
+      "pass": true,
+      "backend": "opencl",
+      "seed_frames": 16,
+      "test_frames": 256,
+      "longer_frames": 257,
+      "callback_calls": 2,
+      "default_bit_exact": true,
+      "callback_bit_exact": true,
+      "scope": "repeated saved codes; numerical checks, not listening or speed"
+    }
+  ],
+  "htp_placement": {
+    "distinct_graphs": 9,
+    "compute_calls": 14,
+    "all_single_split_htp": true,
+    "all_compute_status_success": true,
+    "max_htp_compute_nodes": 43048
+  },
+  "default_compatibility": [
+    {
+      "before": "old-binary-default-8.f32",
+      "after": "htp/default-8.f32",
+      "bit_exact": true,
+      "sha256": "647a23204c40925713736cc9e46a40678ca1ca2333c44afa3c36e6ee1905817c",
+      "samples": 15360
+    },
+    {
+      "before": "old-source-default-256.f32",
+      "after": "htp/window-100.f32",
+      "bit_exact": true,
+      "sha256": "c47c909bdad8007d3791e36c14c574977575f3a446c701b58a49e6993b3f9fbd",
+      "samples": 491520
+    }
+  ],
+  "default_compatibility_scope": {
+    "short": "saved pre-edit pipeline-stage executable, same unchanged GGML/DSP libraries",
+    "long": "decoder source/header from 24bf404, recompiled against unchanged loader/GGML runtime; 256 frames at original default100"
+  },
+  "backend_parity": [
+    {
+      "window": "default_8",
+      "samples": 15360,
+      "same_length": true,
+      "htp_vs_cpu_nrmse": 0.004849136987687591,
+      "htp_vs_cpu_max_abs": 0.0005581080913543701,
+      "opencl_vs_cpu_nrmse": 0.003908813020193869,
+      "opencl_vs_cpu_max_abs": 0.00044355541467666626,
+      "htp_vs_opencl_nrmse": 0.0020129861131890745,
+      "htp_vs_opencl_max_abs": 0.00021948106586933136
+    },
+    {
+      "window": 100,
+      "samples": 491520,
+      "same_length": true,
+      "htp_vs_cpu_nrmse": 0.003038646641674267,
+      "htp_vs_cpu_max_abs": 0.0024588946253061295,
+      "opencl_vs_cpu_nrmse": 0.0027370765018100516,
+      "opencl_vs_cpu_max_abs": 0.0030236616730690002,
+      "htp_vs_opencl_nrmse": 0.0015961202902680229,
+      "htp_vs_opencl_max_abs": 0.0013667158782482147
+    },
+    {
+      "window": 200,
+      "samples": 491520,
+      "same_length": true,
+      "htp_vs_cpu_nrmse": 0.003019221963661999,
+      "htp_vs_cpu_max_abs": 0.002794496715068817,
+      "opencl_vs_cpu_nrmse": 0.0027803228271602747,
+      "opencl_vs_cpu_max_abs": 0.004024293273687363,
+      "htp_vs_opencl_nrmse": 0.0015697448056944795,
+      "htp_vs_opencl_max_abs": 0.0012925192713737488
+    },
+    {
+      "window": 256,
+      "samples": 491520,
+      "same_length": true,
+      "htp_vs_cpu_nrmse": 0.002925273236944868,
+      "htp_vs_cpu_max_abs": 0.0021767671569250524,
+      "opencl_vs_cpu_nrmse": 0.0026111311051392754,
+      "opencl_vs_cpu_max_abs": 0.0018797386437654495,
+      "htp_vs_opencl_nrmse": 0.0015327988634071272,
+      "htp_vs_opencl_max_abs": 0.0013231374323368073
+    },
+    {
+      "window": "256_frames_257",
+      "samples": 493440,
+      "same_length": true,
+      "htp_vs_cpu_nrmse": 0.002891183085075675,
+      "htp_vs_cpu_max_abs": 0.0021767671569250524,
+      "opencl_vs_cpu_nrmse": 0.0025771259913912343,
+      "opencl_vs_cpu_max_abs": 0.0018797386437654495,
+      "htp_vs_opencl_nrmse": 0.0015543770298481376,
+      "htp_vs_opencl_max_abs": 0.0013475026935338974
+    }
+  ],
+  "json_parser_probe": {
+    "unicode_input": "{\"text\":\"Caf\\u00e9 \\u4f60\\u597d\"}",
+    "unicode_actual": "Cafu00e9 u4f60u597d",
+    "key_in_value_input": "{\"note\":\"text\",\"junk\":\"wrong\",\"text\":\"correct\"}",
+    "key_in_value_actual": "wrong",
+    "status": "reproduced, not fixed",
+    "method": "compiled verbatim current json_get helpers extracted from src/main.cpp; no model invocation"
+  },
+  "protected_baseline_after": {
+    "npu.sh": {
+      "sha256": "8854db753099b627cfa3efdcb8b4a71375c1bb17fef6ad4b5d043eb80dc641fd",
+      "matches": true
+    },
+    "tools/npu/launch.py": {
+      "sha256": "ee51c041060dda135658558bf5775a524d3f62177eac61651aa8f555844c3fd0",
+      "matches": true
+    },
+    "tools/npu/native-env.sh": {
+      "sha256": "a704c243a5854dc677b31702aaa53bf5b9c05abda01a4f65796d6cf192976f31",
+      "matches": true
+    },
+    ".cache/npu/app-build/qwen3-tts-cli": {
+      "sha256": "c14b3402b2b553605f2c787a88c94b92bd7d960d4c6f36a816a3c47fc2c8ec71",
+      "matches": true
+    },
+    ".cache/npu/build/src/ggml-hexagon/libggml-htp-v79.so": {
+      "sha256": "29befffe763535e28e3f131723e7aa40c0428c50be629cf1e2dccfed3ef80990",
+      "matches": true
+    }
+  },
+  "artifact_sha256": {
+    ".cache/improvement-audit-20261102/htp/default-8.f32": "647a23204c40925713736cc9e46a40678ca1ca2333c44afa3c36e6ee1905817c",
+    ".cache/improvement-audit-20261102/htp/window-100.f32": "c47c909bdad8007d3791e36c14c574977575f3a446c701b58a49e6993b3f9fbd",
+    ".cache/improvement-audit-20261102/htp/window-200.f32": "60c25c1bac2fbf9be94a9871ed97167a6f48bcc8a4a3869a84ed7270eb48802e",
+    ".cache/improvement-audit-20261102/htp/window-256-frames-257.f32": "2b542cfd388fa375528775d3d20dbc1bae4721b564377f27b4b050d0992e54fc",
+    ".cache/improvement-audit-20261102/htp/window-256.f32": "91ba26099c7313d76b0e0eb9007b79d7a60bab4356eff7b0a8c19c53ec46b6d6",
+    ".cache/improvement-audit-20261102/cpu/default-8.f32": "ffa05918b63746144e98581f466baae12965cfc412d7680dafae921dd31f344b",
+    ".cache/improvement-audit-20261102/cpu/window-100.f32": "df03b8b2a377f4df57e6087e2de43909f14184498297f17cc013063e3174f1b7",
+    ".cache/improvement-audit-20261102/cpu/window-200.f32": "62922a9fc1eb79f51bb72e486ceee09598fc513287bc59a07dd2ca2f87f96d26",
+    ".cache/improvement-audit-20261102/cpu/window-256-frames-257.f32": "7c0d12427645b8e8c6a8914f6419e4cf6bf9a76f83496b68b53a17a5987cd84a",
+    ".cache/improvement-audit-20261102/cpu/window-256.f32": "da5c613e58d8dd88a7b2ef477080670028a75824fb625b1fb675d65e435b685d",
+    ".cache/improvement-audit-20261102/opencl/default-8.f32": "21cb73f19880ad26229cd45f07deb4f73738e37aa78a44edaedf54651d2a28d6",
+    ".cache/improvement-audit-20261102/opencl/window-100.f32": "579bef9608562dc48f7c85e6e675f1932311feacbd964a626836e4e2e8b39835",
+    ".cache/improvement-audit-20261102/opencl/window-200.f32": "180a0b96131fddc2f875b79062c2c3e6467109c87f1ea5bfe0db985e503e9566",
+    ".cache/improvement-audit-20261102/opencl/window-256-frames-257.f32": "494ef1370b6a711f12c2f897868a418b2042f96693e2590e0db7f96353fbb06c",
+    ".cache/improvement-audit-20261102/opencl/window-256.f32": "674f3b83a7486947b223c52b20917dcc99b73f6fce24cc06d88a567424de0bc2",
+    ".cache/improvement-audit-20261102/htp/placement.jsonl": "35d26e2d65bd80e83eecd7cee6d2622c5bc1284f5a4a872662292ea6a79944b4",
+    ".cache/improvement-audit-20261102/htp/run.log": "14aa994f8964582e3df2d24a4b9ed2d4d0f0679e9ca59d5f70a61ab323eef871",
+    ".cache/improvement-audit-20261102/cpu/run.log": "7a2b54d1cce89fe8d0a6461ae3c7246c1e8f552c4406d78b51c0ef1200e8e43b",
+    ".cache/improvement-audit-20261102/opencl/run.log": "888573c85ea0ff48f8f7be5257a90e11d13dcb324baec4aecb9b851c25706088",
+    ".cache/improvement-audit-20261102/baseline-decode": "16b4fec65c25fba903749d3a5329a72998568d415225aa737912a840ee3c4ccc",
+    ".cache/improvement-audit-20261102/baseline-decode.cpp": "00193778f6a8f5cdca7db1e9e16c3b3ad515eb14ac955c54c7345f356cbd9e08",
+    ".cache/npu-max/app-build/qwen3-tts-cli": "4a1fcf856e3ab4fdbe0d40b1c53beba89c5999538b871d372a4fc989aa7f0fa2",
+    ".cache/npu-max/app-build/tools/npu/npu-max-test-vocoder-chunks": "d2490051b819c0adccbe6610ac2baf805ed2dc3a70204b5841d92cff3a4f082e",
+    ".cache/npu-max/pipeline/20261028T103343-6866/codes.i32": "abb9688cb33d6da422ea879e5df83637e7b8ff046245b5d202fa1ec1bdf54d16"
+  },
+  "source_sha256": {
+    "AGENTS.md": "17e05f6c4fa6fbb3db79a1d85207d9938d7baa20a1668c1a90cfe92aa1082936",
+    "README.md": "aaf8ff4b5874f219369ed1ba9fa656b83adb89253a762e785bf79a477e8242cc",
+    "docs/README.md": "b13597a6bd327aa4ae839286a1fd950c614115d328ab38de09405122f50d755a",
+    "docs/FORK_AUDIT.md": "e032cacc023eb60ed6cda07ba8662ed7fa83704ff1d2f70f93d3aabad0fae461",
+    "docs/NPU_MAX_BACKEND_AUDIT.md": "ac50b861d1255bd73e88b42ccdc08412100469289c51ca45f1cb31543428c65b",
+    "src/main.cpp": "cac52475e7c9dbac3268ac781b50f491615b9cd316ee57d6ac6f2828ec301a59",
+    "src/qwen3_tts.cpp": "bdaac5a334c92e3cdb49df849d31890503c353ea58fe5cafc76d03aca8b0732e",
+    "src/qwen3_tts.h": "e32841aa8917f72c6c48d4733a92b18e7809366d151127cddc3a3ac112cc6bc7",
+    "src/audio_tokenizer_decoder.cpp": "841c36cb4f1f69ce178ed07002ce22c4d14be283977c6c65a7c7b2f419b887d5",
+    "src/audio_tokenizer_decoder.h": "f811de08731b0c7ff39f429b40b8769b079cacd3abd16f302bda76dba16cd29d",
+    "tools/npu-max/launch.py": "4ca29397c8592917a43ed52918454745102708b0de4d14d20c6fa7d23719aed0",
+    "tools/npu-max/test-vocoder-chunks.cpp": "de7d2dea83bbae1c511d1289451218d01192f013068758781c11f5260e644207",
+    "tools/npu-max/test-vocoder-options.py": "07114fee900a348b87ce2743c609897e2f7958b33228b975ea0ebe7431d93ce6",
+    "tools/npu-max/test-launchers.py": "bc410b09acaaff3e8200d6781ad08ef869071cf27e016ba77dd3d24ab76441f7",
+    "tools/npu/CMakeLists.txt": "f7179d98d292297fb5c6677792e5c8e1b7c161080a67e2532a6c8ca39f7027f7"
+  }
+}

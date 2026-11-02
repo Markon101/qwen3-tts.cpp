@@ -74,7 +74,7 @@ VALUE_FLAGS = set(('-m --model --tokenizer -t --text -o --output -r --reference 
                    '-l --language --temperature --top-k --top-p --min-p '
                    '--repetition-penalty --frequency-penalty --presence-penalty '
                    '--dry-multiplier --dyntemp-range --sub-temperature --sub-top-k '
-                   '--sub-top-p --max-tokens --output-rate -j --threads --gen-config').split())
+                   '--sub-top-p --max-tokens --output-rate --vocoder-chunk-frames -j --threads --gen-config').split())
 ALIASES = {'-r': '--reference', '-t': '--text', '-o': '--output', '-m': '--model'}
 
 
@@ -266,6 +266,19 @@ class Checks:
         assert env['ADSP_LIBRARY_PATH'] == str(library_root / 'ggml-hexagon')
         assert env['OCL_ICD_VENDORS'] == '/vendor/lib64/libOpenCL.so'
         assert 'LD_PRELOAD' not in env
+
+    def vocoder_window(self):
+        for size in ('0.6b', '1.7b'):
+            for args in ([size, '--vocoder-chunk-frames', '200', '--text', 'Larger window'],
+                         [size, '--vocoder-chunk-frames', '200', '--server']):
+                capture, _ = self.invoke(args=args)
+                values, _ = parsed(capture['argv'])
+                assert values['--vocoder-chunk-frames'] == '200'
+        # A value-taking option must not consume flags embedded in text.
+        capture, _ = self.invoke(args=['0.6b', '--text', '--vocoder-chunk-frames'])
+        values, _ = parsed(capture['argv'])
+        assert values['--text'] == '--vocoder-chunk-frames'
+        self.reject(['--vocoder-chunk-frames'])
 
     def demo(self, size, preset=False):
         env = {'QWEN_NPU_DEMO_EMBEDDING_06B': str(self.embedding)} if preset else {}
@@ -556,6 +569,7 @@ class Checks:
                            lambda s=size, e=explicit: self.playback(s, e))
             self.check(size + ' synthesize and save embedding with cache output',
                        lambda s=size: self.generate_and_save_embedding(s))
+        self.check('vocoder window forwarding and flag-like text', self.vocoder_window)
         self.check('literal transcript-file flag text', self.literal_transcript_flag)
         self.check('flag-like text and non-streaming', self.passthrough)
         self.check('explicit empty text preserved', self.empty_text)

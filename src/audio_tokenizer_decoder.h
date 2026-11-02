@@ -11,6 +11,17 @@
 
 namespace qwen3_tts {
 
+// Total frames per vocoder graph, including replayed left context.
+// Two 2x upsamplers feed untiled pointwise matmuls; HTP's 1024-row
+// activation limit permits at most 256 input frames.
+inline constexpr int32_t VOCODER_LEFT_CONTEXT = 16;
+inline constexpr int32_t VOCODER_DEFAULT_CHUNK_FRAMES = 100;
+inline constexpr int32_t VOCODER_MAX_CHUNK_FRAMES = 256;
+
+inline bool valid_vocoder_chunk_frames(int32_t frames) {
+    return frames > VOCODER_LEFT_CONTEXT && frames <= VOCODER_MAX_CHUNK_FRAMES;
+}
+
 // Audio tokenizer decoder (vocoder) configuration
 struct audio_decoder_config {
     int32_t sample_rate = 24000;
@@ -179,9 +190,12 @@ public:
     // Decode audio codes to waveform
     // codes: audio codes [n_frames, n_codebooks] as int32_t (row-major)
     // n_frames: number of frames
+    // chunk_frames: total graph window, including up to 16 replayed frames (17..256).
+    // Larger windows reduce boundary resets but use more scratch memory.
     // Returns: audio samples normalized to [-1, 1] at 24kHz
     bool decode(const int32_t * codes, int32_t n_frames,
-                std::vector<float> & samples);
+                std::vector<float> & samples,
+                int32_t chunk_frames = VOCODER_DEFAULT_CHUNK_FRAMES);
     
     // Set CPU thread count and threadpool for vocoder decode
     void set_n_threads(int32_t n_threads);

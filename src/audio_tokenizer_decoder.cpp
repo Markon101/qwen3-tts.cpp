@@ -1283,7 +1283,11 @@ struct ggml_cgraph * AudioTokenizerDecoder::build_graph(int32_t n_frames) {
 }
 
 bool AudioTokenizerDecoder::decode(const int32_t * codes, int32_t n_frames,
-                                    std::vector<float> & samples) {
+                                    std::vector<float> & samples, int32_t chunk_frames) {
+    if (!valid_vocoder_chunk_frames(chunk_frames)) {
+        error_msg_ = "vocoder_chunk_frames must be an integer from 17 to 256";
+        return false;
+    }
     if (!model_.ctx) {
         error_msg_ = "Model not loaded";
         return false;
@@ -1295,11 +1299,10 @@ bool AudioTokenizerDecoder::decode(const int32_t * codes, int32_t n_frames,
         return false;
     }
 
-    // In [channels, time] NPU-Max layout, ne[0] <= 1920 regardless of frame count,
-    // so up to 100 frames (8.0s) runs in a single un-chunked pass. For >100 frames,
-    // prepend 16 frames of causal overlap context so chunk boundaries have zero pitch/phase dip.
-    const int32_t chunk_limit = 100;
-    const int32_t left_context = 16;
+    // Replay a bounded causal prefix at each boundary. This reduces convolution
+    // warmup artifacts, but cannot preserve the transformer's entire history.
+    const int32_t chunk_limit = chunk_frames;
+    const int32_t left_context = VOCODER_LEFT_CONTEXT;
     const int32_t chunk_step = chunk_limit - left_context;
     if (n_frames > chunk_limit) {
         samples.clear();
@@ -1308,13 +1311,16 @@ bool AudioTokenizerDecoder::decode(const int32_t * codes, int32_t n_frames,
             int32_t ctx_frames = std::min(left_context, base);
             int32_t this_chunk = std::min(chunk_step, n_frames - base);
             std::vector<float> chunk_samples;
-            if (!decode(codes + (size_t)(base - ctx_frames) * 16, ctx_frames + this_chunk, chunk_samples)) {
+            if (!decode(codes + (size_t)(base - ctx_frames) * cfg.n_codebooks,
+                        ctx_frames + this_chunk, chunk_samples, chunk_frames)) {
                 return false;
             }
             const size_t skip_samples = (size_t)ctx_frames * 1920;
-            if (chunk_samples.size() > skip_samples) {
-                samples.insert(samples.end(), chunk_samples.begin() + skip_samples, chunk_samples.end());
+            if (chunk_samples.size() != (size_t)(ctx_frames + this_chunk) * 1920) {
+                error_msg_ = "Unexpected vocoder chunk sample count";
+                return false;
             }
+            samples.insert(samples.end(), chunk_samples.begin() + skip_samples, chunk_samples.end());
         }
         return true;
     }

@@ -29,3 +29,6 @@ add_executable(npu-max-test-encoder-lowering ../npu-max/test-encoder-lowering.cp
 target_link_libraries(npu-max-test-encoder-lowering PRIVATE qwen3_tts)
 add_executable(npu-max-pipeline-stage ../npu-max/pipeline-stage.cpp)
 target_link_libraries(npu-max-pipeline-stage PRIVATE qwen3_tts)
+
+add_executable(npu-max-test-vocoder-chunks ../npu-max/test-vocoder-chunks.cpp)
+target_link_libraries(npu-max-test-vocoder-chunks PRIVATE qwen3_tts)

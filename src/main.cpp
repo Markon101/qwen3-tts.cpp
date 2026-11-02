@@ -22,6 +22,8 @@ static void ggml_log_filter(enum ggml_log_level level, const char * text, void *
 #include <string>
 #include <cstdlib>
 #include <iostream>
+#include <cerrno>
+#include <limits>
 
 static void print_usage(const char * prog) {
     fprintf(stderr, "Usage: %s -m <model_dir> -t <text> [options]\n\n", prog);
@@ -35,6 +37,7 @@ static void print_usage(const char * prog) {
     fprintf(stderr, "  -o, --output <file>            Output WAV file (default: output.wav)\n");
     fprintf(stderr, "  -s, --speak                    Play audio through speakers instead of saving\n");
     fprintf(stderr, "                                 (pass -o as well to do both)\n");
+    fprintf(stderr, "  --vocoder-chunk-frames <n>      Vocoder window including overlap (17..256, default: 100)\n");
     fprintf(stderr, "  --output-rate <hz>             Resample output to this rate (e.g. 48000).\n");
     fprintf(stderr, "                                 Default is native 24000 Hz. 48000 is 2x upsample.\n");
     fprintf(stderr, "                                 NOTE: upsampling does not improve audio quality.\n");
@@ -499,8 +502,9 @@ int main(int argc, char ** argv) {
     dest = _v; } while(0)
 #define NEXT_INT(dest)   do { \
     if (++i >= argc) { fprintf(stderr, "Missing value for %s\n", arg.c_str()); return 1; } \
-    char * _end = nullptr; long _v = strtol(argv[i], &_end, 10); \
-    if (_end == argv[i] || *_end != '\0') { fprintf(stderr, "Invalid integer for %s: %s\n", arg.c_str(), argv[i]); return 1; } \
+    errno = 0; char * _end = nullptr; long _v = strtol(argv[i], &_end, 10); \
+    if (_end == argv[i] || *_end != '\0' || errno == ERANGE || \
+        _v < std::numeric_limits<int32_t>::min() || _v > std::numeric_limits<int32_t>::max()) { fprintf(stderr, "Invalid integer for %s: %s\n", arg.c_str(), argv[i]); return 1; } \
     dest = (int32_t)_v; } while(0)
 
         if      (arg == "-h" || arg == "--help")            { print_usage(argv[0]); return 0; }
@@ -530,6 +534,7 @@ int main(int argc, char ** argv) {
         else if (arg == "--sub-top-k")                      { NEXT_INT(params.subtalker_top_k); }
         else if (arg == "--sub-top-p")                      { NEXT_FLOAT(params.subtalker_top_p); }
         else if (arg == "--max-tokens")                     { NEXT_INT(params.max_audio_tokens); }
+        else if (arg == "--vocoder-chunk-frames")            { NEXT_INT(params.vocoder_chunk_frames); }
         else if (arg == "--non-streaming")                  { params.non_streaming_mode = true; }
         else if (arg == "--output-rate")                    { NEXT_INT(output_rate); }
         else if (arg == "-j" || arg == "--threads")         { NEXT_INT(params.n_threads); }
@@ -546,6 +551,11 @@ int main(int argc, char ** argv) {
 #undef NEXT_ARG
 #undef NEXT_FLOAT
 #undef NEXT_INT
+    }
+
+    if (!qwen3_tts::valid_vocoder_chunk_frames(params.vocoder_chunk_frames)) {
+        fprintf(stderr, "Error: --vocoder-chunk-frames must be an integer from 17 to 256\n");
+        return 1;
     }
 
     if (model_dir.empty()) {

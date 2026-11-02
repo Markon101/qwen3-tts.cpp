@@ -105,6 +105,10 @@ struct tts_params {
     // Threading — default to hardware concurrency (capped at 8 to avoid diminishing returns)
     int32_t n_threads = (int32_t)std::min((unsigned)8u, std::thread::hardware_concurrency());
 
+    // Vocoder graph window, including replayed context (17..256 frames).
+    // Independent of max_audio_tokens and the audio callback's chunk size.
+    int32_t vocoder_chunk_frames = VOCODER_DEFAULT_CHUNK_FRAMES;
+
     // Logging
     bool print_progress = false;
     bool print_timing   = false;  // default OFF — matches C API default; set true explicitly if needed

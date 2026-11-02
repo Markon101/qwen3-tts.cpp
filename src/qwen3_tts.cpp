@@ -707,7 +707,7 @@ bool Qwen3TTS::decode_codes(const std::vector<int32_t> & codes,
     }
 
     int64_t t0 = get_time_ms();
-    if (!audio_decoder_.decode(codes.data(), n_frames, result.audio)) {
+    if (!audio_decoder_.decode(codes.data(), n_frames, result.audio, params.vocoder_chunk_frames)) {
         result.error_msg = "Vocoder decode failed: " + audio_decoder_.get_error();
         return false;
     }
@@ -759,7 +759,14 @@ bool Qwen3TTS::decode_codes_streaming(const std::vector<int32_t> & codes,
         return false;
     }
 
-    const int32_t chunk = std::min<int32_t>(audio_chunk_frames_, 100 - 16);  // frames per decode call (reserve 16 frames for causal left context)
+    if (!valid_vocoder_chunk_frames(params.vocoder_chunk_frames)) {
+        result.error_msg = "vocoder_chunk_frames must be an integer from 17 to 256";
+        return false;
+    }
+    // Callback size still controls emitted frames; the graph window also
+    // includes the replayed prefix and must fit the requested limit.
+    const int32_t chunk = std::min<int32_t>(audio_chunk_frames_,
+                                           params.vocoder_chunk_frames - VOCODER_LEFT_CONTEXT);
     const int32_t sr    = audio_decoder_.get_config().sample_rate;
 
     int64_t t_decode_total = 0;
@@ -769,21 +776,32 @@ bool Qwen3TTS::decode_codes_streaming(const std::vector<int32_t> & codes,
         int32_t remaining   = n_frames - base;
         int32_t this_chunk  = (chunk < remaining) ? chunk : remaining;
         int     is_last     = (base + this_chunk >= n_frames);
-        int32_t ctx_frames  = std::min<int32_t>(16, base);
+        int32_t ctx_frames  = std::min<int32_t>(VOCODER_LEFT_CONTEXT, base);
 
         std::vector<float> raw_chunk_audio;
         int64_t t0 = get_time_ms();
         if (!audio_decoder_.decode(codes.data() + (size_t)(base - ctx_frames) * n_cb,
-                                    ctx_frames + this_chunk, raw_chunk_audio)) {
+                                    ctx_frames + this_chunk, raw_chunk_audio, params.vocoder_chunk_frames)) {
             result.error_msg = "Vocoder decode failed: " + audio_decoder_.get_error();
             return false;
         }
         t_decode_total += get_time_ms() - t0;
 
         const size_t skip_samples = (size_t)ctx_frames * 1920;
+        if (raw_chunk_audio.size() != (size_t)(ctx_frames + this_chunk) * 1920) {
+            result.error_msg = "Unexpected vocoder chunk sample count";
+            return false;
+        }
+        if (getenv("QWEN3_TTS_VALIDATE_AUDIO")) {
+            for (float value : raw_chunk_audio) {
+                if (!std::isfinite(value)) {
+                    result.error_msg = "Vocoder produced non-finite float audio";
+                    return false;
+                }
+            }
+        }
         const float * chunk_ptr = raw_chunk_audio.data() + skip_samples;
-        const size_t chunk_len = raw_chunk_audio.size() > skip_samples
-            ? raw_chunk_audio.size() - skip_samples : 0;
+        const size_t chunk_len = raw_chunk_audio.size() - skip_samples;
 
         // Append to result.audio so the caller gets the full waveform
         // even when using streaming (result is still fully populated at the end)

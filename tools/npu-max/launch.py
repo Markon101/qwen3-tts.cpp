@@ -16,7 +16,7 @@ VALUE_FLAGS = {
     '--top-p', '--min-p', '--repetition-penalty', '--frequency-penalty',
     '--presence-penalty', '--dry-multiplier', '--dyntemp-range',
     '--sub-temperature', '--sub-top-k', '--sub-top-p', '--max-tokens',
-    '--output-rate', '-j', '--threads', '--gen-config',
+    '--output-rate', '--vocoder-chunk-frames', '-j', '--threads', '--gen-config',
 }
 ALIASES = {'-r': '--reference', '-t': '--text', '-o': '--output', '-m': '--model'}
 
@@ -34,7 +34,8 @@ def usage():
           '  -p, --profile mixed | --mixed    Hybrid: encoder & transformer on HTP, vocoder on Adreno OpenCL GPU\n'
           '  -p, --profile opencl | --opencl  OpenCL GPU backend fallback\n'
           '  -p, --profile cpu | --cpu        CPU backend fallback\n'
-          '  --nhvx 1..6                      Hexagon HVX worker count (default: 4)\n\n'
+          '  --nhvx 1..6                      Hexagon HVX worker count (default: 6)\n\n'
+          '  --vocoder-chunk-frames 17..256   Total vocoder graph window (default: 100)\n\n'
           'Voice modes:\n'
           '  --text TEXT                              no-reference speech\n'
           '  -r REF.wav --text TEXT                   speaker-only clone\n'

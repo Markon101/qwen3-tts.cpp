@@ -1,5 +1,15 @@
 # NPU-Max: execution audit of the actual GGML backend
 
+> Update 2026-11-02: [the repeatable fork audit](FORK_AUDIT.md) adds controllable
+> vocoder windows (17–256 frames, default 100) and same-code checks. Bounded
+> 16-frame overlap does not guarantee full-history waveform equivalence.
+> All performance tests in the timing tables below (and the raw timing logs from
+> the 2026-11-02 audit) were taken while Termux was in the background, where
+> Android restricts CPU/host scheduling (`cpuset` / clock throttling) while HTP
+> runs on the separate DSP. Treat those latencies and relative speedups against
+> CPU/OpenCL as background-scheduled observations; re-measure in verified
+> foreground (`/top-app`) before citing foreground performance claims.
+
 This is a source audit of application baseline `2692ae5` and GGML baseline
 `148852d7`, followed by the experimental changes described below. Backend
 selection alone is not evidence that every graph node ran there. The NPU-Max
@@ -286,11 +296,20 @@ Every pipeline component has been audited, migrated, optimized, and validated on
    - Refactoring the NPU-Max vocoder graph to operate natively in `[channels, time, 1]` (`channels_first = true`) with pre-computed F32 VQ codebooks (`state_.max_codebooks`) and pre-split per-tap 2D `[in, out]` weight matrices (`state_.max_taps`, `149.9 MB` resident on HTP) eliminated **100% of `TRANSPOSE + CONT` ops**, reduced the graph from `4,058` to **`1,609` HTP nodes (`CPU=0, splits=1`)**, and bounded `ne[0] <= 1920` floats (`<= 7.5 KB` per row in VTCM, 100% 32-float HVX-aligned) regardless of frame count.
 5. **100-Frame Un-Chunked Vocoder Window & 16-Frame Causal Overlap Chunking (`audio_tokenizer_decoder.cpp`, `qwen3_tts.cpp`, `pipeline-stage.cpp`)**:
    - Because `[channels, time, 1]` keeps `ne[0] <= 1920` for any sequence length, the un-chunked vocoder window was raised from `16` frames (`1.28 s`) to **`100` frames (`8.0 s`)**.
-   - For sequences exceeding 100 frames (or streaming chunk callbacks), decoding independent chunks from zero-padded silence previously reset the causal convolution/Snake state at chunk boundaries, causing an audible pitch dip. Prepending **16 frames (`1.28 s`) of causal left context** and discarding the warmup prefix (`ctx_frames * 1920` samples) across `AudioTokenizerDecoder::decode`, `Qwen3TTS::decode_codes_streaming`, and `pipeline-stage.cpp` eliminates inter-clip pitch shifts and phase discontinuities.
+   - For sequences exceeding 100 frames (or streaming chunk callbacks), decoding independent chunks from zero-padded silence previously reset the causal convolution/Snake state at chunk boundaries, causing an audible pitch dip. Prepending **16 frames (`1.28 s`) of causal left context** and discarding the warmup prefix (`ctx_frames * 1920` samples) across `AudioTokenizerDecoder::decode`, `Qwen3TTS::decode_codes_streaming`, and `pipeline-stage.cpp` reduces the convolution warmup reset. It does not preserve full transformer attention history or guarantee artifact-free boundaries; see the 2026-11-02 same-code checks.
 6. **Exact `tanh`-Based `HTP_OP_UNARY_GELU` in ConvNeXt Blocks (`act-ops.c:310-395`)**:
    - Fixing `unary_gelu_f32_per_thread` to compute the exact `tanh`-based GELU formula instead of `GELU_QUICK` (`x * sigmoid(1.702 * x)`) reduced HTP vocoder NRMSE by **40x** (`0.0518` -> `0.00130` vs OpenCL).
 
 ### 3. Vocoder Backend Benchmark & Numerical Parity (Snapdragon 8 Elite Live Hardware)
+
+> **Scheduling note (2026-11-02):** All performance tests in Sections 3–5 were
+> taken while Termux was in the background. Android background scheduling
+> restricts CPU core placement and clocks (disproportionately slowing CPU
+> reference execution and host-side orchestration/dispatch), whereas Hexagon HTP
+> executes on the DSP under explicit HAP power requests. Numerical parity and
+> graph-placement counts (`CPU=0, splits=1`) remain valid, but latency and speedup
+> ratios must not be cited as foreground (`/top-app`) benchmarks without fresh
+> foreground re-measurement.
 
 Measured on identical 24-frame (`1.92 s` audio, `46,080` samples) and 13-frame (`1.04 s` audio, `24,960` samples) speech code sequences on SM8750 (`NHVX=6`):
 
@@ -323,7 +342,7 @@ Measured on identical 24-frame (`1.92 s` audio, `46,080` samples) and 13-frame (
 ### 6. Profiles Available in `npu-max.sh`
 
 - `--profile htp` (default): 100% HTP acceleration across all stages (Speaker encoder, Talker, Code predictor, Vocoder).
-- `--profile mixed`: HTP for Speaker encoder & Transformer; OpenCL Adreno GPU for Vocoder (maximum synthesis speed).
+- `--profile mixed`: HTP for Speaker encoder & Transformer; OpenCL Adreno GPU for Vocoder (alternative engine placement; the normal launcher remains sequential).
 - `--profile opencl`: OpenCL GPU acceleration fallback.
 - `--profile cpu`: CPU reference fallback.
 - The working baseline runtime (`.cache/npu`, `npu.sh`) remains 100% untouched.
