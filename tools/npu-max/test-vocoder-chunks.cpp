@@ -128,9 +128,29 @@ int main(int argc, char ** argv) {
     params.vocoder_chunk_frames = 16;
     tts_result invalid;
     if (tts.decode_codes_streaming(full_codes, invalid, params) || !invalid.audio.empty()) return 9;
+    // Check ICL reference-prefix trimming for both single-shot and streaming callback paths.
+    params.vocoder_chunk_frames = 100;
+    std::vector<int32_t> icl_codes(codes.begin(), codes.begin() + 24 * 16);
+    tts.set_audio_chunk_callback(nullptr);
+    tts_result icl_single;
+    if (!tts.decode_codes_streaming(icl_codes, icl_single, params, /*trim_prefix_frames=*/8) ||
+        !valid_audio(icl_single.audio, 16)) return 10;
+    std::vector<float> icl_cb_emitted;
+    int icl_cb_calls = 0, icl_cb_last = 0;
+    tts.set_audio_chunk_callback([&](const float * data, int n, int sr, int last) {
+        ++icl_cb_calls; icl_cb_last += last;
+        if (sr != 24000 || n <= 0) return 1;
+        icl_cb_emitted.insert(icl_cb_emitted.end(), data, data + n);
+        return 0;
+    }, 12);
+    tts_result icl_streamed;
+    if (!tts.decode_codes_streaming(icl_codes, icl_streamed, params, /*trim_prefix_frames=*/8) ||
+        icl_cb_calls != 2 || icl_cb_last != 1 ||
+        !valid_audio(icl_streamed.audio, 16) || icl_cb_emitted != icl_streamed.audio) return 11;
     printf("{\"pass\":true,\"backend\":\"%s\",\"seed_frames\":%zu,\"test_frames\":256,"
            "\"longer_frames\":257,\"callback_calls\":%d,\"default_bit_exact\":true,"
-           "\"callback_bit_exact\":true,\"scope\":\"repeated saved codes; numerical checks, not listening or speed\"}\n",
+           "\"callback_bit_exact\":true,\"icl_trim_callback_bit_exact\":true,"
+           "\"scope\":\"repeated saved codes; numerical checks, not listening or speed\"}\n",
            argv[4], seed.size() / 16, calls);
     return 0;
 }

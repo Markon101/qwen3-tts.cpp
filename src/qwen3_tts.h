@@ -357,9 +357,13 @@ private:
 
     // Decode codes in streaming chunks, calling audio_chunk_callback_ for each.
     // Falls through to a single-shot decode when no chunk callback is registered.
+    // When trim_prefix_frames > 0 (e.g. ICL reference frames), only frames at or
+    // after trim_prefix_frames are emitted to callbacks and retained in result.audio,
+    // while using up to VOCODER_LEFT_CONTEXT preceding frames as causal warmup.
     bool decode_codes_streaming(const std::vector<int32_t> & codes,
                                  tts_result & result,
-                                 const tts_params & params);
+                                 const tts_params & params,
+                                 int32_t trim_prefix_frames = 0);
 
     // Encoder lazy-load helper
     bool ensure_encoder_loaded(const tts_params & params, tts_result * result = nullptr);
@@ -416,6 +420,28 @@ private:
     // Stored so abort works even if set before transformer reload (low-mem mode).
     ggml_abort_callback abort_cb_      = nullptr;
     void *              abort_cb_data_ = nullptr;
+
+    // Single-slot exact reference conditioning cache (speaker embedding + Mimi ICL codes)
+    // keyed by model/tokenizer paths and exact normalized reference PCM samples (<= 30 s).
+    struct voice_ref_cache {
+        std::string          tts_model_path;
+        std::string          decoder_model_path;
+        std::vector<float>   ref_samples;
+        std::vector<float>   speaker_embedding;
+        bool                 has_mimi_codes = false;
+        std::vector<int32_t> ref_codes;
+        int32_t              n_ref_frames   = 0;
+
+        void clear() {
+            tts_model_path.clear();
+            decoder_model_path.clear();
+            ref_samples.clear();
+            speaker_embedding.clear();
+            has_mimi_codes = false;
+            ref_codes.clear();
+            n_ref_frames   = 0;
+        }
+    } voice_ref_cache_;
 };
 
 // ============================================================

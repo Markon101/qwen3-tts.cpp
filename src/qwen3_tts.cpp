@@ -510,6 +510,7 @@ void Qwen3TTS::unload_models() {
         mimi_encoder_.unload_model();
         mimi_encoder_loaded_ = false;
     }
+    voice_ref_cache_.clear();
     models_loaded_ = false;
 }
 
@@ -733,10 +734,21 @@ bool Qwen3TTS::decode_codes(const std::vector<int32_t> & codes,
 // Falls back to single-shot decode when no callback is registered.
 bool Qwen3TTS::decode_codes_streaming(const std::vector<int32_t> & codes,
                                        tts_result & result,
-                                       const tts_params & params) {
+                                       const tts_params & params,
+                                       int32_t trim_prefix_frames) {
     // No chunk callback → delegate to normal single-shot path
     if (!audio_chunk_callback_) {
-        return decode_codes(codes, result, params);
+        if (!decode_codes(codes, result, params)) {
+            return false;
+        }
+        if (trim_prefix_frames > 0 && !result.audio.empty()) {
+            const size_t cut = std::min<size_t>((size_t)trim_prefix_frames * 1920, result.audio.size());
+            std::vector<float> trimmed(
+                std::make_move_iterator(result.audio.begin() + (ptrdiff_t)cut),
+                std::make_move_iterator(result.audio.end()));
+            result.audio = std::move(trimmed);
+        }
+        return true;
     }
 
     // Ensure decoder is loaded
@@ -754,7 +766,7 @@ bool Qwen3TTS::decode_codes_streaming(const std::vector<int32_t> & codes,
 
     const int32_t n_cb     = transformer_.get_config().n_codebooks;
     const int32_t n_frames = (int32_t)(codes.size() / (size_t)n_cb);
-    if (n_frames == 0) {
+    if (n_frames == 0 || trim_prefix_frames < 0 || trim_prefix_frames >= n_frames) {
         result.error_msg = "No speech codes generated";
         return false;
     }
@@ -772,7 +784,7 @@ bool Qwen3TTS::decode_codes_streaming(const std::vector<int32_t> & codes,
     int64_t t_decode_total = 0;
     bool aborted = false;
 
-    for (int32_t base = 0; base < n_frames && !aborted; base += chunk) {
+    for (int32_t base = trim_prefix_frames; base < n_frames && !aborted; base += chunk) {
         int32_t remaining   = n_frames - base;
         int32_t this_chunk  = (chunk < remaining) ? chunk : remaining;
         int     is_last     = (base + this_chunk >= n_frames);
@@ -1143,17 +1155,41 @@ tts_result Qwen3TTS::synthesize_with_voice(const std::string & text,
 
     if (!ensure_encoder_loaded(params, &result)) return result;
 
-    // Extract speaker embedding
+    // Extract or reuse cached speaker embedding
     int64_t t0 = get_time_ms();
     std::vector<float> speaker_embedding;
-    if (n_ref_samples > 30 * encoder_sample_rate_)
-        fprintf(stderr, "  [warn] Reference audio %.1fs > 30s -- encoder will be slow. 3-30s recommended.\n",
-                n_ref_samples / (float)encoder_sample_rate_);
-    if (!audio_encoder_.encode(ref_samples, n_ref_samples, speaker_embedding)) {
-        result.error_msg = "Speaker encoding failed: " + audio_encoder_.get_error();
-        return result;
+    const bool cacheable_ref = (ref_samples != nullptr && n_ref_samples > 0 &&
+                                n_ref_samples <= 30 * encoder_sample_rate_);
+    const bool cache_hit = cacheable_ref &&
+        voice_ref_cache_.tts_model_path == tts_model_path_ &&
+        voice_ref_cache_.decoder_model_path == decoder_model_path_ &&
+        (int32_t)voice_ref_cache_.ref_samples.size() == n_ref_samples &&
+        !voice_ref_cache_.speaker_embedding.empty() &&
+        std::memcmp(voice_ref_cache_.ref_samples.data(), ref_samples,
+                    (size_t)n_ref_samples * sizeof(float)) == 0;
+
+    if (cache_hit) {
+        speaker_embedding = voice_ref_cache_.speaker_embedding;
+        result.t_encode_ms = get_time_ms() - t0;
+    } else {
+        if (n_ref_samples > 30 * encoder_sample_rate_)
+            fprintf(stderr, "  [warn] Reference audio %.1fs > 30s -- encoder will be slow. 3-30s recommended.\n",
+                    n_ref_samples / (float)encoder_sample_rate_);
+        if (!audio_encoder_.encode(ref_samples, n_ref_samples, speaker_embedding)) {
+            result.error_msg = "Speaker encoding failed: " + audio_encoder_.get_error();
+            return result;
+        }
+        result.t_encode_ms = get_time_ms() - t0;
+        if (cacheable_ref) {
+            voice_ref_cache_.clear();
+            voice_ref_cache_.tts_model_path     = tts_model_path_;
+            voice_ref_cache_.decoder_model_path = decoder_model_path_;
+            voice_ref_cache_.ref_samples.assign(ref_samples, ref_samples + n_ref_samples);
+            voice_ref_cache_.speaker_embedding  = speaker_embedding;
+        } else {
+            voice_ref_cache_.clear();
+        }
     }
-    result.t_encode_ms = get_time_ms() - t0;
     if (!validate_speaker_embedding(speaker_embedding.data(), speaker_embedding.size(),
             transformer_.get_config().hidden_size, result.error_msg)) return result;
 
@@ -1182,11 +1218,24 @@ tts_result Qwen3TTS::synthesize_with_voice(const std::string & text,
 
             snap_mem("synth/start");
 
-            // Encode reference audio to codec codes
+            // Encode reference audio to codec codes (or reuse cached Mimi codes)
             std::vector<int32_t> ref_codes;
             int32_t n_ref_frames = 0;
-            if (mimi_encoder_.encode(ref_samples, n_ref_samples, ref_codes, n_ref_frames) &&
-                n_ref_frames > 0) {
+            bool mimi_ok = false;
+            if (cache_hit && voice_ref_cache_.has_mimi_codes && voice_ref_cache_.n_ref_frames > 0) {
+                ref_codes    = voice_ref_cache_.ref_codes;
+                n_ref_frames = voice_ref_cache_.n_ref_frames;
+                mimi_ok      = true;
+            } else if (mimi_encoder_.encode(ref_samples, n_ref_samples, ref_codes, n_ref_frames) &&
+                       n_ref_frames > 0) {
+                mimi_ok = true;
+                if (cacheable_ref && voice_ref_cache_.ref_samples.size() == (size_t)n_ref_samples) {
+                    voice_ref_cache_.has_mimi_codes = true;
+                    voice_ref_cache_.ref_codes      = ref_codes;
+                    voice_ref_cache_.n_ref_frames   = n_ref_frames;
+                }
+            }
+            if (mimi_ok) {
 
                 // Tokenize reference text — body only (strip role tokens)
                 // Matches Python's ref_ids[3:-2] passed to generate_icl_prompt()
@@ -1265,31 +1314,15 @@ tts_result Qwen3TTS::synthesize_with_voice(const std::string & text,
                 }
 
                 // For ICL: prepend ref_codes to speech_codes, decode together,
-                // then trim the reference portion from the output waveform
-                const int32_t n_cb = transformer_.get_config().n_codebooks;
+                // and trim the reference prefix so both result.audio and any
+                // streaming audio_chunk_callback_ receive only generated speech.
                 std::vector<int32_t> full_codes;
                 full_codes.reserve(ref_codes.size() + speech_codes.size());
                 full_codes.insert(full_codes.end(), ref_codes.begin(), ref_codes.end());
                 full_codes.insert(full_codes.end(), speech_codes.begin(), speech_codes.end());
 
-                if (!decode_codes_streaming(full_codes, result, params)) return result;
+                if (!decode_codes_streaming(full_codes, result, params, n_ref_frames)) return result;
                 snap_mem("synth/after-decode");
-
-                // Trim the reference portion using float ratio to avoid overflow
-                if (n_ref_frames > 0 && !result.audio.empty()) {
-                    int32_t total_frames = (int32_t)(full_codes.size() / n_cb);
-                    if (total_frames > 0) {
-                        double ratio = (double)n_ref_frames / (double)total_frames;
-                        size_t cut = (size_t)(ratio * (double)result.audio.size());
-                        if (cut > result.audio.size()) cut = result.audio.size();
-                        // Use move-assign from subrange instead of erase(begin,begin+n)
-                        // to avoid a large O(n) element shift in-place.
-                        std::vector<float> trimmed(
-                            std::make_move_iterator(result.audio.begin() + (ptrdiff_t)cut),
-                            std::make_move_iterator(result.audio.end()));
-                        result.audio = std::move(trimmed);
-                    }
-                }
 
                 result.sample_rate = audio_decoder_.get_config().sample_rate;
                 result.success     = true;

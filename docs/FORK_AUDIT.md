@@ -64,8 +64,9 @@ Tradeoffs and interfaces:
 - C++ callers set `tts_params::vocoder_chunk_frames`, or pass the fourth argument
   to `AudioTokenizerDecoder::decode`. Rebuild C++ clients against the changed
   headers. The C API parameter structure/ABI was not extended.
-- `--server --vocoder-chunk-frames 200` sets the process default for every request.
-  There is **no per-request JSON override** for this option yet.
+- `--server --vocoder-chunk-frames 200` sets the process default for every request,
+  and individual JSON requests may also pass `"vocoder_chunk_frames": 200` (validated
+  in `17..256` per request without mutating the server default).
 - Callback emission size remains controlled independently by
   `set_audio_chunk_callback(callback, chunk_frames)`. Its default is still 12.
   The emission size is capped at `vocoder_chunk_frames - 16`; changing the graph
@@ -94,9 +95,9 @@ sample count and, when audio validation is enabled, finite samples before delive
 | CPU & OpenCL same-code chunk tests | Passed on both `cpu` and `opencl` across 100/200/256 windows, 257-frame split, and callback checks |
 | Cross-backend waveform parity | At windows 100/200/256, HTP vs CPU NRMSE is `0.00293–0.00304`, OpenCL vs CPU is `0.00261–0.00278`, and HTP vs OpenCL is `0.00153–0.00160` |
 | Old-default compatibility | Bit-exact SHA-256 match against pre-edit binary (8 frames, `647a2320...`) and pre-edit decoder source at default 100 (256 frames, `c47c909b...`) |
-| Callback delivery | Matched offline samples bit-for-bit with the same window across HTP, CPU, and OpenCL; one final flag; cancellation preserved the emitted prefix |
+| Callback delivery & ICL prefix trimming | Matched offline samples bit-for-bit across HTP, CPU, and OpenCL; ICL `trim_prefix_frames` verified for both single-shot and streaming callback paths |
 | Invalid C++ parameters | Rejected before graph execution; includes direct decoder and callback paths |
-| JSON helper probes | Two existing bugs reproduced; listed below, not fixed in this change |
+| Server RFC 8259 JSON parser (`test-server-json.py`) | 9/9 passed: `\uXXXX` UTF-8 decoding, UTF-16 surrogate pairs, key-in-value isolation, nested objects, strict `vocoder_chunk_frames` validation, malformed JSON rejection |
 | Listening, sustained speed, battery use | Not performed; no new claims for these outcomes |
 
 The waveform probe repeats a saved **16-frame** speech-code sequence to exercise
@@ -162,6 +163,7 @@ For an existing prepared NPU-Max runtime:
 cmake --build .cache/npu-max/app-build --parallel 2
 python tools/npu-max/test-launchers.py
 python tools/npu-max/test-vocoder-options.py
+python tools/npu-max/test-server-json.py
 python tools/npu-max/test-qaic-cache.py
 git diff --check
 ```
@@ -252,37 +254,45 @@ inspect `git diff --check` and `git status`, and make new reports/tests tracked.
 State whether files are staged, committed or pushed. Do not imply a local edit
 has been published.
 
-## Remaining improvement opportunities
+## Resolved source improvements and remaining opportunities
 
-1. **Replace the server's ad-hoc JSON extraction.** A direct compile of the current
-   helpers gives `Cafu00e9 u4f60u597d` for `{"text":"Caf\u00e9 \u4f60\u597d"}`.
-   `{"note":"text","junk":"wrong","text":"correct"}` extracts `wrong`.
-   Python's default JSON serialization escapes non-ASCII, so this affects normal
-   multilingual clients. Use a real JSON parser or a tested lexer, reject malformed
-   values, handle UTF-16 surrogate pairs, and test request isolation. The relevant
-   source is `json_get_str`/`json_get_float` in `src/main.cpp`.
-2. **Fix ICL callback trimming.** Source inspection shows the ICL path invokes
-   `decode_codes_streaming(full_codes, ...)` with reference + generated codes and
-   trims the reference only afterward from `result.audio`. Callbacks have already
-   received that reference prefix. Test emitted samples against the returned
-   trimmed waveform before advertising streaming ICL equivalence. This audit did
-   not perform a full ICL callback reproduction.
-3. **Cache reference conditioning for repeated voices.** `synthesize_with_voice`
-   reruns speaker extraction and, for ICL, Mimi encoding on each request. Cache
-   speaker embeddings and reference codec/text conditioning with model/tokenizer,
-   normalized audio, transcript and preprocessing identities. Invalidate on any
-   change, cap memory/disk use and prove token parity. No gain has been measured here.
-4. **Preserve decoder state across chunks.** A persistent attention KV cache and
-   correct convolution/upsampler history could remove the approximation and replay.
-   Establish chunk/full waveform parity before pursuing overlapping pipeline stages.
-5. **Optimize the code predictor after profiling the current build.** It makes 15
-   dependent predictions per frame. Inspect graph setup, host sampling/embedding
-   transfers and arithmetic separately. Larger vocoder windows do not accelerate
-   this autoregressive loop; old profiling percentages are not current evidence.
-6. **Make CPU tuning portable.** Top-level CMake currently forces an Oryon-1 CPU
-   target for every non-Apple AArch64 release build. Make that a deliberate device
-   profile with a portable option and check unsupported compiler/CPU combinations.
+### Resolved in this audit
 
-For the JSON reproducer, the current local audit retains `json-helper-probe.cpp`
-and `json-helper-findings.txt`. Regenerate the probe from the current helpers when
-rechecking; do not mistake a copied old helper for the latest implementation.
+1. **Replaced the server's ad-hoc JSON extraction (`src/main.cpp`, `tools/npu-max/test-server-json.py`).**
+   Top-level JSON requests are now parsed with an RFC 8259 lexer that decodes
+   `\uXXXX` and UTF-16 surrogate pairs to UTF-8 (`{"text":"Caf\u00e9 \u4f60\u597d"}` ->
+   `Café 你好`), isolates top-level keys from string contents and nested composites
+   (`{"note":"text","junk":"wrong","text":"correct"}` -> `correct`), validates
+   per-request `"vocoder_chunk_frames"` in `17..256`, rejects malformed JSON, and
+   escapes control characters `< 0x20` in `json_escape`.
+2. **Fixed ICL streaming callback trimming (`src/qwen3_tts.h`, `src/qwen3_tts.cpp`).**
+   `decode_codes_streaming` now accepts `trim_prefix_frames` (`n_ref_frames` on the
+   ICL path). When `audio_chunk_callback_` is registered, streaming starts at
+   `base = trim_prefix_frames` while still using up to `VOCODER_LEFT_CONTEXT` (`16`)
+   preceding reference frames as causal warmup, so callbacks never receive the
+   reference audio prefix and concatenated callback samples match `result.audio`
+   bit-for-bit (`icl_trim_callback_bit_exact: true` in `test-vocoder-chunks.cpp`).
+3. **Cached reference conditioning for repeated voices (`src/qwen3_tts.h`, `src/qwen3_tts.cpp`).**
+   `Qwen3TTS` caches the extracted ECAPA speaker embedding and Mimi ICL reference
+   codec frames for a single active reference voice (`<= 30 s`), keyed by loaded
+   model/tokenizer paths and exact `memcmp` of normalized `ref_samples`, and
+   invalidated on `unload_models()` or any reference change.
+4. **Made AArch64 CPU tuning configurable and compiler-checked (`CMakeLists.txt`).**
+   Added `QWEN3_TTS_AARCH64_MCPU` (`auto` default, `oryon-1`, `native`, or `generic`)
+   guarded by `check_cxx_compiler_flag` so non-Oryon AArch64 targets and compilers
+   fall back cleanly.
+
+### Remaining architectural opportunities
+
+1. **Preserve decoder state across chunks.** A persistent attention KV cache and
+   correct convolution/upsampler history could remove the 16-frame overlap
+   approximation and replay. Establish chunk/full waveform parity before pursuing
+   overlapping pipeline stages.
+2. **Optimize the code predictor after profiling the current build in foreground.**
+   It makes 15 dependent predictions per frame. Inspect graph setup, host
+   sampling/embedding transfers and arithmetic separately. Larger vocoder windows
+   do not accelerate this autoregressive loop.
+3. **Run foreground (`/top-app`) performance benchmarks when authorized.** Because
+   all historical timing tables in `docs/NPU_MAX_BACKEND_AUDIT.md` were recorded in
+   the background, re-measure cold, warm, and sustained throughput only after
+   confirming `/proc/self/cpuset` is `/top-app` throughout the run.

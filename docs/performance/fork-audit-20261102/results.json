@@ -18,7 +18,9 @@
     "cli_tests": 19,
     "cli_passed": 19,
     "qaic_cache_checks": 7,
-    "qaic_cache_passed": 7
+    "qaic_cache_passed": 7,
+    "server_json_tests": 9,
+    "server_json_passed": 9
   },
   "htp": [
     {
@@ -54,6 +56,7 @@
       "callback_calls": 2,
       "default_bit_exact": true,
       "callback_bit_exact": true,
+      "icl_trim_callback_bit_exact": true,
       "scope": "repeated saved codes; numerical checks, not listening or speed"
     }
   ],
@@ -132,8 +135,8 @@
     }
   ],
   "htp_placement": {
-    "distinct_graphs": 9,
-    "compute_calls": 14,
+    "distinct_graphs": 19,
+    "compute_calls": 31,
     "all_single_split_htp": true,
     "all_compute_status_success": true,
     "max_htp_compute_nodes": 43048
@@ -217,11 +220,13 @@
   ],
   "json_parser_probe": {
     "unicode_input": "{\"text\":\"Caf\\u00e9 \\u4f60\\u597d\"}",
-    "unicode_actual": "Cafu00e9 u4f60u597d",
+    "unicode_actual": "Café 你好",
+    "surrogate_pair_input": "{\"text\":\"Launch \\ud83d\\ude80\"}",
+    "surrogate_pair_actual": "Launch 🚀",
     "key_in_value_input": "{\"note\":\"text\",\"junk\":\"wrong\",\"text\":\"correct\"}",
-    "key_in_value_actual": "wrong",
-    "status": "reproduced, not fixed",
-    "method": "compiled verbatim current json_get helpers extracted from src/main.cpp; no model invocation"
+    "key_in_value_actual": "correct",
+    "status": "resolved and verified (9/9)",
+    "method": "tools/npu-max/test-server-json.py compiled verbatim current json helpers from src/main.cpp; no model invocation"
   },
   "protected_baseline_after": {
     "npu.sh": {
@@ -261,31 +266,33 @@
     ".cache/improvement-audit-20261102/opencl/window-200.f32": "180a0b96131fddc2f875b79062c2c3e6467109c87f1ea5bfe0db985e503e9566",
     ".cache/improvement-audit-20261102/opencl/window-256-frames-257.f32": "494ef1370b6a711f12c2f897868a418b2042f96693e2590e0db7f96353fbb06c",
     ".cache/improvement-audit-20261102/opencl/window-256.f32": "674f3b83a7486947b223c52b20917dcc99b73f6fce24cc06d88a567424de0bc2",
-    ".cache/improvement-audit-20261102/htp/placement.jsonl": "35d26e2d65bd80e83eecd7cee6d2622c5bc1284f5a4a872662292ea6a79944b4",
-    ".cache/improvement-audit-20261102/htp/run.log": "14aa994f8964582e3df2d24a4b9ed2d4d0f0679e9ca59d5f70a61ab323eef871",
+    ".cache/improvement-audit-20261102/htp/placement.jsonl": "9d13d3a1f9c533aee7000b531c351be95a52da285b9e300ae1dbe9c77fafc1f6",
+    ".cache/improvement-audit-20261102/htp/run.log": "7ea36555f32f6610bc0e09421fac7284c449084c53950ca0f9160250e1fb2280",
     ".cache/improvement-audit-20261102/cpu/run.log": "7a2b54d1cce89fe8d0a6461ae3c7246c1e8f552c4406d78b51c0ef1200e8e43b",
     ".cache/improvement-audit-20261102/opencl/run.log": "888573c85ea0ff48f8f7be5257a90e11d13dcb324baec4aecb9b851c25706088",
     ".cache/improvement-audit-20261102/baseline-decode": "16b4fec65c25fba903749d3a5329a72998568d415225aa737912a840ee3c4ccc",
     ".cache/improvement-audit-20261102/baseline-decode.cpp": "00193778f6a8f5cdca7db1e9e16c3b3ad515eb14ac955c54c7345f356cbd9e08",
-    ".cache/npu-max/app-build/qwen3-tts-cli": "4a1fcf856e3ab4fdbe0d40b1c53beba89c5999538b871d372a4fc989aa7f0fa2",
-    ".cache/npu-max/app-build/tools/npu/npu-max-test-vocoder-chunks": "d2490051b819c0adccbe6610ac2baf805ed2dc3a70204b5841d92cff3a4f082e",
+    ".cache/npu-max/app-build/qwen3-tts-cli": "2bc3acb12c37e1f822b1b7314743ce275fd1c9dd024b19d46f59c3b2b4bd6899",
+    ".cache/npu-max/app-build/tools/npu/npu-max-test-vocoder-chunks": "265333331adf18d53e933aebee46e3a72446e59ccea0cc096f8ad66906829dd0",
     ".cache/npu-max/pipeline/20261028T103343-6866/codes.i32": "abb9688cb33d6da422ea879e5df83637e7b8ff046245b5d202fa1ec1bdf54d16"
   },
   "source_sha256": {
     "AGENTS.md": "17e05f6c4fa6fbb3db79a1d85207d9938d7baa20a1668c1a90cfe92aa1082936",
     "README.md": "aaf8ff4b5874f219369ed1ba9fa656b83adb89253a762e785bf79a477e8242cc",
     "docs/README.md": "b13597a6bd327aa4ae839286a1fd950c614115d328ab38de09405122f50d755a",
-    "docs/FORK_AUDIT.md": "e032cacc023eb60ed6cda07ba8662ed7fa83704ff1d2f70f93d3aabad0fae461",
+    "docs/FORK_AUDIT.md": "38fe8923eac2a247ea1f7ba335e48bc06de63b89b2a0b03df9b8a832f900d282",
     "docs/NPU_MAX_BACKEND_AUDIT.md": "ac50b861d1255bd73e88b42ccdc08412100469289c51ca45f1cb31543428c65b",
-    "src/main.cpp": "cac52475e7c9dbac3268ac781b50f491615b9cd316ee57d6ac6f2828ec301a59",
-    "src/qwen3_tts.cpp": "bdaac5a334c92e3cdb49df849d31890503c353ea58fe5cafc76d03aca8b0732e",
-    "src/qwen3_tts.h": "e32841aa8917f72c6c48d4733a92b18e7809366d151127cddc3a3ac112cc6bc7",
+    "src/main.cpp": "0d6471370320eaefb6f06f8272b91ba0a2d89b36af91342e5d157841085000d2",
+    "src/qwen3_tts.cpp": "37c8b45a088b77c5791f8ec9143d9f531980db7e19fb6c9d608f1919aca53520",
+    "src/qwen3_tts.h": "9087c9e58cceb452508b8099932d42106ef868f44bdbca8de92b7c9d6a1cc10c",
     "src/audio_tokenizer_decoder.cpp": "841c36cb4f1f69ce178ed07002ce22c4d14be283977c6c65a7c7b2f419b887d5",
     "src/audio_tokenizer_decoder.h": "f811de08731b0c7ff39f429b40b8769b079cacd3abd16f302bda76dba16cd29d",
     "tools/npu-max/launch.py": "4ca29397c8592917a43ed52918454745102708b0de4d14d20c6fa7d23719aed0",
-    "tools/npu-max/test-vocoder-chunks.cpp": "de7d2dea83bbae1c511d1289451218d01192f013068758781c11f5260e644207",
+    "tools/npu-max/test-vocoder-chunks.cpp": "e174303be0906128a7748e2d571d29c2af063c0a8159c5cba32a2b0412f23926",
     "tools/npu-max/test-vocoder-options.py": "07114fee900a348b87ce2743c609897e2f7958b33228b975ea0ebe7431d93ce6",
     "tools/npu-max/test-launchers.py": "bc410b09acaaff3e8200d6781ad08ef869071cf27e016ba77dd3d24ab76441f7",
-    "tools/npu/CMakeLists.txt": "f7179d98d292297fb5c6677792e5c8e1b7c161080a67e2532a6c8ca39f7027f7"
+    "tools/npu/CMakeLists.txt": "f7179d98d292297fb5c6677792e5c8e1b7c161080a67e2532a6c8ca39f7027f7",
+    "CMakeLists.txt": "c19726a8432ad7ead8d1760a5c09da402781b6ba42d20509d5ca2e007b5cac4e",
+    "tools/npu-max/test-server-json.py": "bbc74faafaab3ca4965c758b4019329730f3350c0232b5c0503a7c1e67c52eba"
   }
 }

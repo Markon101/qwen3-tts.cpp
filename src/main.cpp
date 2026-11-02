@@ -109,56 +109,302 @@ static void print_usage(const char * prog) {
 }
 
 // ---------------------------------------------------------------------------
-// Minimal JSON helpers — no external deps, flat key-value only
+// RFC 8259 JSON object helpers — no external deps, UTF-8 + surrogate decoding
 // ---------------------------------------------------------------------------
 
-// Extract a string value from flat JSON. Returns empty string if not found.
-static std::string json_get_str(const std::string & json, const std::string & key) {
-    std::string search = "\"" + key + "\"";
-    size_t pos = json.find(search);
-    if (pos == std::string::npos) return "";
-    pos = json.find(':', pos + search.size());
-    if (pos == std::string::npos) return "";
-    ++pos;
-    while (pos < json.size() && (json[pos]==' '||json[pos]=='\t')) ++pos;
-    if (pos >= json.size() || json[pos] != '"') return "";
-    ++pos; // skip opening quote
-    std::string result;
-    while (pos < json.size() && json[pos] != '"') {
-        if (json[pos] == '\\' && pos + 1 < json.size()) {
-            ++pos;
-            switch (json[pos]) {
-                case '"':  result += '"'; break;
-                case '\\': result += '\\'; break;
-                case 'n':  result += '\n'; break;
-                case 't':  result += '\t'; break;
-                case 'r':  result += '\r'; break;
-                default:   result += json[pos]; break;
-            }
-        } else {
-            result += json[pos];
-        }
+static void json_skip_ws(const std::string & s, size_t & pos) {
+    while (pos < s.size() && (s[pos] == ' ' || s[pos] == '\t' || s[pos] == '\r' || s[pos] == '\n')) {
         ++pos;
     }
-    return result;
+}
+
+static bool json_parse_hex4(const std::string & s, size_t pos, uint32_t & out) {
+    if (pos + 4 > s.size()) return false;
+    uint32_t v = 0;
+    for (size_t i = 0; i < 4; ++i) {
+        char c = s[pos + i];
+        v <<= 4;
+        if (c >= '0' && c <= '9') v |= (uint32_t)(c - '0');
+        else if (c >= 'a' && c <= 'f') v |= (uint32_t)(c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F') v |= (uint32_t)(c - 'A' + 10);
+        else return false;
+    }
+    out = v;
+    return true;
+}
+
+static void json_append_utf8(std::string & out, uint32_t cp) {
+    if (cp <= 0x7Fu) {
+        out.push_back((char)cp);
+    } else if (cp <= 0x7FFu) {
+        out.push_back((char)(0xC0u | (cp >> 6)));
+        out.push_back((char)(0x80u | (cp & 0x3Fu)));
+    } else if (cp <= 0xFFFFu) {
+        out.push_back((char)(0xE0u | (cp >> 12)));
+        out.push_back((char)(0x80u | ((cp >> 6) & 0x3Fu)));
+        out.push_back((char)(0x80u | (cp & 0x3Fu)));
+    } else if (cp <= 0x10FFFFu) {
+        out.push_back((char)(0xF0u | (cp >> 18)));
+        out.push_back((char)(0x80u | ((cp >> 12) & 0x3Fu)));
+        out.push_back((char)(0x80u | ((cp >> 6) & 0x3Fu)));
+        out.push_back((char)(0x80u | (cp & 0x3Fu)));
+    }
+}
+
+static bool json_parse_string(const std::string & s, size_t & pos, std::string & out) {
+    if (pos >= s.size() || s[pos] != '"') return false;
+    ++pos;
+    out.clear();
+    while (pos < s.size()) {
+        unsigned char c = (unsigned char)s[pos++];
+        if (c == '"') return true;
+        if (c < 0x20u) return false; // unescaped control character
+        if (c != '\\') {
+            out.push_back((char)c);
+            continue;
+        }
+        if (pos >= s.size()) return false;
+        char esc = s[pos++];
+        switch (esc) {
+            case '"':  out.push_back('"');  break;
+            case '\\': out.push_back('\\'); break;
+            case '/':  out.push_back('/');  break;
+            case 'b':  out.push_back('\b'); break;
+            case 'f':  out.push_back('\f'); break;
+            case 'n':  out.push_back('\n'); break;
+            case 'r':  out.push_back('\r'); break;
+            case 't':  out.push_back('\t'); break;
+            case 'u': {
+                uint32_t cp = 0;
+                if (!json_parse_hex4(s, pos, cp)) return false;
+                pos += 4;
+                if (cp >= 0xD800u && cp <= 0xDBFFu) {
+                    if (pos + 6 > s.size() || s[pos] != '\\' || s[pos + 1] != 'u') return false;
+                    uint32_t low = 0;
+                    if (!json_parse_hex4(s, pos + 2, low)) return false;
+                    if (low < 0xDC00u || low > 0xDFFFu) return false;
+                    pos += 6;
+                    cp = 0x10000u + (((cp - 0xD800u) << 10) | (low - 0xDC00u));
+                } else if (cp >= 0xDC00u && cp <= 0xDFFFu) {
+                    return false; // unpaired low surrogate
+                }
+                json_append_utf8(out, cp);
+                break;
+            }
+            default:
+                return false;
+        }
+    }
+    return false;
+}
+
+static bool json_parse_number_token(const std::string & s, size_t & pos, std::string & raw) {
+    size_t start = pos;
+    if (pos < s.size() && s[pos] == '-') ++pos;
+    if (pos >= s.size()) return false;
+    if (s[pos] == '0') {
+        ++pos;
+        if (pos < s.size() && s[pos] >= '0' && s[pos] <= '9') return false; // leading zero
+    } else if (s[pos] >= '1' && s[pos] <= '9') {
+        while (pos < s.size() && s[pos] >= '0' && s[pos] <= '9') ++pos;
+    } else {
+        return false;
+    }
+    if (pos < s.size() && s[pos] == '.') {
+        ++pos;
+        if (pos >= s.size() || s[pos] < '0' || s[pos] > '9') return false;
+        while (pos < s.size() && s[pos] >= '0' && s[pos] <= '9') ++pos;
+    }
+    if (pos < s.size() && (s[pos] == 'e' || s[pos] == 'E')) {
+        ++pos;
+        if (pos < s.size() && (s[pos] == '+' || s[pos] == '-')) ++pos;
+        if (pos >= s.size() || s[pos] < '0' || s[pos] > '9') return false;
+        while (pos < s.size() && s[pos] >= '0' && s[pos] <= '9') ++pos;
+    }
+    raw = s.substr(start, pos - start);
+    return true;
+}
+
+enum class JsonFieldKind { STRING, NUMBER, BOOL, NULL_VAL, COMPOSITE };
+
+struct JsonFieldValue {
+    JsonFieldKind kind = JsonFieldKind::NULL_VAL;
+    std::string text;
+};
+
+static bool json_skip_value(const std::string & s, size_t & pos, JsonFieldValue * out_val, int depth = 0) {
+    if (depth > 64) return false;
+    json_skip_ws(s, pos);
+    if (pos >= s.size()) return false;
+    char c = s[pos];
+    if (c == '"') {
+        std::string decoded;
+        if (!json_parse_string(s, pos, decoded)) return false;
+        if (out_val) { out_val->kind = JsonFieldKind::STRING; out_val->text = std::move(decoded); }
+        return true;
+    }
+    if (c == '{') {
+        size_t start = pos++;
+        json_skip_ws(s, pos);
+        if (pos < s.size() && s[pos] == '}') {
+            ++pos;
+            if (out_val) { out_val->kind = JsonFieldKind::COMPOSITE; out_val->text = s.substr(start, pos - start); }
+            return true;
+        }
+        while (pos < s.size()) {
+            json_skip_ws(s, pos);
+            std::string k;
+            if (!json_parse_string(s, pos, k)) return false;
+            json_skip_ws(s, pos);
+            if (pos >= s.size() || s[pos] != ':') return false;
+            ++pos;
+            if (!json_skip_value(s, pos, nullptr, depth + 1)) return false;
+            json_skip_ws(s, pos);
+            if (pos < s.size() && s[pos] == ',') { ++pos; continue; }
+            if (pos < s.size() && s[pos] == '}') {
+                ++pos;
+                if (out_val) { out_val->kind = JsonFieldKind::COMPOSITE; out_val->text = s.substr(start, pos - start); }
+                return true;
+            }
+            return false;
+        }
+        return false;
+    }
+    if (c == '[') {
+        size_t start = pos++;
+        json_skip_ws(s, pos);
+        if (pos < s.size() && s[pos] == ']') {
+            ++pos;
+            if (out_val) { out_val->kind = JsonFieldKind::COMPOSITE; out_val->text = s.substr(start, pos - start); }
+            return true;
+        }
+        while (pos < s.size()) {
+            if (!json_skip_value(s, pos, nullptr, depth + 1)) return false;
+            json_skip_ws(s, pos);
+            if (pos < s.size() && s[pos] == ',') { ++pos; continue; }
+            if (pos < s.size() && s[pos] == ']') {
+                ++pos;
+                if (out_val) { out_val->kind = JsonFieldKind::COMPOSITE; out_val->text = s.substr(start, pos - start); }
+                return true;
+            }
+            return false;
+        }
+        return false;
+    }
+    if (s.compare(pos, 4, "true") == 0) {
+        pos += 4;
+        if (out_val) { out_val->kind = JsonFieldKind::BOOL; out_val->text = "true"; }
+        return true;
+    }
+    if (s.compare(pos, 5, "false") == 0) {
+        pos += 5;
+        if (out_val) { out_val->kind = JsonFieldKind::BOOL; out_val->text = "false"; }
+        return true;
+    }
+    if (s.compare(pos, 4, "null") == 0) {
+        pos += 4;
+        if (out_val) { out_val->kind = JsonFieldKind::NULL_VAL; out_val->text = "null"; }
+        return true;
+    }
+    std::string num;
+    if (json_parse_number_token(s, pos, num)) {
+        if (out_val) { out_val->kind = JsonFieldKind::NUMBER; out_val->text = std::move(num); }
+        return true;
+    }
+    return false;
+}
+
+static bool json_find_top_level_field(const std::string & json, const std::string & target_key,
+                                      JsonFieldValue & found_val, bool & found, bool * valid_json = nullptr) {
+    found = false;
+    if (valid_json) *valid_json = false;
+    size_t pos = 0;
+    json_skip_ws(json, pos);
+    if (pos >= json.size() || json[pos] != '{') return false;
+    ++pos;
+    json_skip_ws(json, pos);
+    if (pos < json.size() && json[pos] == '}') {
+        ++pos;
+        json_skip_ws(json, pos);
+        if (pos != json.size()) return false;
+        if (valid_json) *valid_json = true;
+        return true;
+    }
+    while (pos < json.size()) {
+        json_skip_ws(json, pos);
+        std::string key;
+        if (!json_parse_string(json, pos, key)) return false;
+        json_skip_ws(json, pos);
+        if (pos >= json.size() || json[pos] != ':') return false;
+        ++pos;
+        JsonFieldValue val;
+        if (!json_skip_value(json, pos, &val, 0)) return false;
+        if (key == target_key) {
+            found_val = std::move(val);
+            found = true;
+        }
+        json_skip_ws(json, pos);
+        if (pos < json.size() && json[pos] == ',') {
+            ++pos;
+            continue;
+        }
+        if (pos < json.size() && json[pos] == '}') {
+            ++pos;
+            json_skip_ws(json, pos);
+            if (pos != json.size()) return false;
+            if (valid_json) *valid_json = true;
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+// Extract a string value from a top-level JSON object. Returns empty string if not found or invalid.
+static std::string json_get_str(const std::string & json, const std::string & key) {
+    JsonFieldValue val;
+    bool found = false;
+    if (!json_find_top_level_field(json, key, val, found) || !found || val.kind != JsonFieldKind::STRING) {
+        return "";
+    }
+    return val.text;
 }
 
 static float json_get_float(const std::string & json, const std::string & key, float def) {
-    std::string search = "\"" + key + "\"";
-    size_t pos = json.find(search);
-    if (pos == std::string::npos) return def;
-    pos = json.find(':', pos + search.size());
-    if (pos == std::string::npos) return def;
-    ++pos;
-    while (pos < json.size() && (json[pos]==' '||json[pos]=='\t')) ++pos;
+    JsonFieldValue val;
+    bool found = false;
+    if (!json_find_top_level_field(json, key, val, found) || !found || val.kind != JsonFieldKind::NUMBER) {
+        return def;
+    }
+    errno = 0;
     char * end = nullptr;
-    float v = strtof(json.c_str() + pos, &end);
-    if (end == json.c_str() + pos) return def;
+    float v = strtof(val.text.c_str(), &end);
+    if (end == val.text.c_str() || *end != '\0' || errno == ERANGE || !std::isfinite(v)) return def;
     return v;
 }
 
+static bool json_get_strict_int(const std::string & json, const std::string & key,
+                                int32_t & out, bool & present) {
+    JsonFieldValue val;
+    present = false;
+    if (!json_find_top_level_field(json, key, val, present)) return false;
+    if (!present) return true;
+    if (val.kind != JsonFieldKind::NUMBER) return false;
+    errno = 0;
+    char * end = nullptr;
+    long v = strtol(val.text.c_str(), &end, 10);
+    if (end == val.text.c_str() || *end != '\0' || errno == ERANGE ||
+        v < std::numeric_limits<int32_t>::min() || v > std::numeric_limits<int32_t>::max()) {
+        return false;
+    }
+    out = (int32_t)v;
+    return true;
+}
+
 static int json_get_int(const std::string & json, const std::string & key, int def) {
-    float v = json_get_float(json, key, (float)def);
+    int32_t v = def;
+    bool present = false;
+    if (!json_get_strict_int(json, key, v, present) || !present) return def;
     return (int)v;
 }
 
@@ -166,13 +412,21 @@ static int json_get_int(const std::string & json, const std::string & key, int d
 static std::string json_escape(const std::string & s) {
     std::string out;
     out.reserve(s.size() + 8);
-    for (char c : s) {
+    for (unsigned char c : s) {
         if      (c == '"')  { out += "\\\""; }
         else if (c == '\\') { out += "\\\\"; }
+        else if (c == '\b') { out += "\\b";  }
+        else if (c == '\f') { out += "\\f";  }
         else if (c == '\n') { out += "\\n";  }
         else if (c == '\r') { out += "\\r";  }
         else if (c == '\t') { out += "\\t";  }
-        else { out += c; }
+        else if (c < 0x20u) {
+            char buf[8];
+            snprintf(buf, sizeof(buf), "\\u%04x", (unsigned)c);
+            out += buf;
+        } else {
+            out.push_back((char)c);
+        }
     }
     return out;
 }
@@ -354,6 +608,16 @@ static int run_server(qwen3_tts::Qwen3TTS & tts, const qwen3_tts::tts_params & d
         ++request_num;
         fprintf(stderr, "[server] Request %d: processing...\n", request_num);
 
+        JsonFieldValue probe_val;
+        bool probe_found = false;
+        bool valid_json = false;
+        if (!json_find_top_level_field(line, "text", probe_val, probe_found, &valid_json) || !valid_json) {
+            fprintf(stderr, "[server] Request %d: malformed JSON request\n", request_num);
+            printf("{\"success\":false,\"error\":\"malformed JSON request\"}\n");
+            fflush(stdout);
+            continue;
+        }
+
         // Parse request fields
         std::string text          = json_get_str(line, "text");
         std::string output_file   = json_get_str(line, "output");
@@ -396,6 +660,19 @@ static int run_server(qwen3_tts::Qwen3TTS & tts, const qwen3_tts::tts_params & d
         if (rep_pen > -998.0f) params.repetition_penalty = rep_pen;
         int max_tok = json_get_int(line, "max_tokens", -999);
         if (max_tok > -998) params.max_audio_tokens = max_tok;
+
+        int32_t req_vocoder_window = params.vocoder_chunk_frames;
+        bool has_vocoder_window = false;
+        if (!json_get_strict_int(line, "vocoder_chunk_frames", req_vocoder_window, has_vocoder_window) ||
+            (has_vocoder_window && !qwen3_tts::valid_vocoder_chunk_frames(req_vocoder_window))) {
+            fprintf(stderr, "[server] Request %d: invalid vocoder_chunk_frames\n", request_num);
+            printf("{\"success\":false,\"error\":\"vocoder_chunk_frames must be an integer from 17 to 256\"}\n");
+            fflush(stdout);
+            continue;
+        }
+        if (has_vocoder_window) {
+            params.vocoder_chunk_frames = req_vocoder_window;
+        }
 
         int req_threads = json_get_int(line, "threads", -999);
         if (req_threads > 0) params.n_threads = req_threads;
