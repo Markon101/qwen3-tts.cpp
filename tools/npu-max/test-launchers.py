@@ -26,7 +26,7 @@ LIBRARIES = ('libggml.so', 'libggml-base.so', 'libggml-cpu.so',
 CAPTURE_ENV = ('QWEN_MODELS_DIR', 'QWEN_NPU_MAX_PROFILE', 'QWEN3_TTS_TRANSFORMER_BACKEND',
                'QWEN3_TTS_ENCODER_BACKEND', 'QWEN3_TTS_ENCODER_FFT',
                'QWEN3_TTS_MAX_STRICT', 'QWEN3_TTS_MAX_VOCODER',
-               'QWEN3_TTS_EXECUTION_TRACE',
+               'QWEN3_TTS_EXECUTION_TRACE', 'QWEN3_TTS_EXECUTION_TRACE_DETAIL',
                'QWEN3_TTS_DECODER_BACKEND', 'QWEN3_TTS_VALIDATE_AUDIO',
                'QWEN3_TTS_VALIDATE_LOGITS', 'QWEN3_TTS_FORCE_CPU',
                'GGML_HEXAGON_HOSTBUF', 'GGML_HEXAGON_NHVX',
@@ -245,6 +245,20 @@ class Checks:
             self.results.append({'name': name, 'passed': False,
                                  'error': type(error).__name__ + ': ' + str(error)})
 
+    def trace_mode(self, mode):
+        capture, _ = self.invoke(args=('0.6b', '--text', 'Trace mode'),
+                                 env={'QWEN_NPU_MAX_TRACE': mode,
+                                      'QWEN3_TTS_EXECUTION_TRACE': '/stale/trace.jsonl',
+                                      'QWEN3_TTS_EXECUTION_TRACE_DETAIL': 'stale'})
+        env = capture['environment']
+        assert env['QWEN3_TTS_MAX_STRICT'] == '1'
+        if mode == 'off':
+            assert env.get('QWEN3_TTS_EXECUTION_TRACE') is None
+            assert env.get('QWEN3_TTS_EXECUTION_TRACE_DETAIL') is None
+        else:
+            assert env['QWEN3_TTS_EXECUTION_TRACE_DETAIL'] == mode
+            assert Path(env['QWEN3_TTS_EXECUTION_TRACE']).parent == self.repo / '.cache/npu-max/traces'
+
     def basic(self, size, entry):
         capture, _ = self.invoke(entry, (size, '--text', 'Hello world'))
         values, _ = parsed(capture['argv'])
@@ -256,6 +270,7 @@ class Checks:
         assert env['QWEN3_TTS_ENCODER_BACKEND'] == 'hexagon'
         assert env['QWEN3_TTS_MAX_VOCODER'] == env['QWEN3_TTS_MAX_STRICT'] == '1'
         assert env['QWEN3_TTS_ENCODER_FFT'] == '1'
+        assert env['QWEN3_TTS_EXECUTION_TRACE_DETAIL'] == 'summary'
         assert Path(env['QWEN3_TTS_EXECUTION_TRACE']).parent == self.repo / '.cache/npu-max/traces'
         assert env['QWEN3_TTS_VALIDATE_AUDIO'] == env['QWEN3_TTS_VALIDATE_LOGITS'] == '1'
         assert env['GGML_HEXAGON_HOSTBUF'] == '0'
@@ -619,6 +634,10 @@ class Checks:
         for value in ('invalid', '', 'HTP', '../htp'):
             self.check('reject profile ' + repr(value),
                        lambda v=value: self.invalid_environment('QWEN_NPU_MAX_PROFILE', v))
+        for mode in ('summary', 'full', 'off'):
+            self.check('trace mode ' + mode, lambda m=mode: self.trace_mode(m))
+        self.check('reject invalid trace mode',
+                   lambda: self.invalid_environment('QWEN_NPU_MAX_TRACE', 'invalid'))
         for value in ('0', '7', '-1', 'auto', '1; echo invalid'):
             self.check('reject NHVX ' + repr(value),
                        lambda v=value: self.invalid_environment('GGML_HEXAGON_NHVX', v))

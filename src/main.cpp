@@ -24,6 +24,32 @@ static void ggml_log_filter(enum ggml_log_level level, const char * text, void *
 #include <iostream>
 #include <cerrno>
 #include <limits>
+#include <chrono>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
+static bool terminal_stderr() {
+#ifdef _WIN32
+    return _isatty(_fileno(stderr)) != 0;
+#else
+    return isatty(fileno(stderr)) != 0;
+#endif
+}
+
+static auto terminal_progress() {
+    using Clock = std::chrono::steady_clock;
+    return [last = Clock::time_point{}](int tok, int max) mutable -> int {
+        const auto now = Clock::now();
+        if (tok == 1 || tok >= max || now - last >= std::chrono::milliseconds(250)) {
+            fprintf(stderr, "\rGenerating: %d/%d tokens", tok, max);
+            last = now;
+        }
+        return 0;
+    };
+}
 
 static void print_usage(const char * prog) {
     fprintf(stderr, "Usage: %s -m <model_dir> -t <text> [options]\n\n", prog);
@@ -454,11 +480,10 @@ static int do_synthesize(qwen3_tts::Qwen3TTS & tts,
         params.icl_mode = true;
     }
 
-    if (!quiet) {
-        tts.set_progress_callback([](int tok, int max) -> int {
-            fprintf(stderr, "\rGenerating: %d/%d tokens", tok, max);
-            return 0;
-        });
+    if (!quiet && terminal_stderr()) {
+        tts.set_progress_callback(terminal_progress());
+    } else {
+        tts.set_progress_callback(nullptr);
     }
 
     qwen3_tts::tts_result result;
@@ -907,11 +932,6 @@ int main(int argc, char ** argv) {
     }
 
     // ---- One-shot synthesis --------------------------------------------
-    tts.set_progress_callback([](int tok, int max) -> int {
-        fprintf(stderr, "\rGenerating: %d/%d tokens", tok, max);
-        return 0;  // non-zero would stop generation early
-    });
-
     return do_synthesize(tts, text, output_file, reference_audio, ref_text,
                          embedding_in, embedding_out, params, /*quiet=*/false,
                          speak, output_explicit, output_rate);

@@ -273,11 +273,19 @@ def main(argv):
                QWEN3_TTS_VALIDATE_AUDIO='1', QWEN3_TTS_VALIDATE_LOGITS='1')
     if cli_nhvx is not None:
         env['GGML_HEXAGON_NHVX'] = cli_nhvx
-    trace_dir = ROOT / '.cache/npu-max/traces'
-    trace_dir.mkdir(parents=True, exist_ok=True)
-    import time
-    env['QWEN3_TTS_EXECUTION_TRACE'] = str(trace_dir / (str(time.time_ns()) + '.jsonl'))
-    print('NPU-Max profile: ' + profile + '; placement trace: ' + env['QWEN3_TTS_EXECUTION_TRACE'], file=sys.stderr)
+    trace_mode = os.environ.get('QWEN_NPU_MAX_TRACE', 'summary')
+    if trace_mode not in ('summary', 'full', 'off'):
+        fail('QWEN_NPU_MAX_TRACE must be summary, full or off')
+    env.pop('QWEN3_TTS_EXECUTION_TRACE', None)
+    env.pop('QWEN3_TTS_EXECUTION_TRACE_DETAIL', None)
+    if trace_mode != 'off':
+        trace_dir = ROOT / '.cache/npu-max/traces'
+        trace_dir.mkdir(parents=True, exist_ok=True)
+        import time
+        env['QWEN3_TTS_EXECUTION_TRACE'] = str(trace_dir / (str(time.time_ns()) + '.jsonl'))
+        env['QWEN3_TTS_EXECUTION_TRACE_DETAIL'] = trace_mode
+    print('NPU-Max profile: ' + profile + '; placement trace: ' +
+          (env.get('QWEN3_TTS_EXECUTION_TRACE', 'off')) + ' (' + trace_mode + ')', file=sys.stderr)
     # Reuse the measurement runner in this interpreter; no extra Python
     # process or model import is added to the synthesis startup path.
     sys.path.insert(0, str(ROOT / 'scripts/android'))

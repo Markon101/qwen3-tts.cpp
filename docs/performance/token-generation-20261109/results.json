@@ -1,0 +1,779 @@
+{
+  "date": "2026-11-09",
+  "app_start": "9ac729b6ca05170e43c14042deb8221c4012fd67",
+  "ggml": "a1ff3917ed1b31deac8b96f04a62afd89a15faa6",
+  "scope": "Token-generation (Talker + 15-step Code Predictor) graph fusion, persistent step plans, HTP/OpenCL backend fixes, same-backend bit-exact numerical controls, and verified foreground (/top-app) predictor and 32-frame generation A/B/A timings.",
+  "controls": [
+    {
+      "mode": "check",
+      "size": "0.6b",
+      "backend": "cpu",
+      "valid": true,
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0,
+      "candidate": "swiglu"
+    },
+    {
+      "mode": "check",
+      "size": "0.6b",
+      "backend": "hexagon",
+      "valid": true,
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0,
+      "candidate": "swiglu"
+    },
+    {
+      "mode": "check",
+      "size": "0.6b",
+      "backend": "opencl",
+      "valid": true,
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0,
+      "candidate": "swiglu"
+    },
+    {
+      "mode": "check",
+      "size": "1.7b",
+      "backend": "cpu",
+      "valid": true,
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0,
+      "candidate": "swiglu"
+    },
+    {
+      "mode": "check",
+      "size": "1.7b",
+      "backend": "hexagon",
+      "valid": true,
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0,
+      "candidate": "swiglu"
+    },
+    {
+      "mode": "check",
+      "size": "1.7b",
+      "backend": "opencl",
+      "valid": true,
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0,
+      "candidate": "swiglu"
+    },
+    {
+      "mode": "check",
+      "size": "0.6b",
+      "backend": "cpu",
+      "valid": true,
+      "candidate": "strided-kv",
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "0.6b",
+      "backend": "hexagon",
+      "valid": true,
+      "candidate": "strided-kv",
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "0.6b",
+      "backend": "opencl",
+      "valid": true,
+      "candidate": "strided-kv",
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "1.7b",
+      "backend": "cpu",
+      "valid": true,
+      "candidate": "strided-kv",
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "1.7b",
+      "backend": "hexagon",
+      "valid": true,
+      "candidate": "strided-kv",
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "1.7b",
+      "backend": "opencl",
+      "valid": true,
+      "candidate": "strided-kv",
+      "exit_code": 0,
+      "reason": null,
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "0.6b",
+      "backend": "cpu",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "0.6b",
+      "backend": "hexagon",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "0.6b",
+      "backend": "opencl",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "1.7b",
+      "backend": "cpu",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "1.7b",
+      "backend": "hexagon",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    },
+    {
+      "mode": "check",
+      "size": "1.7b",
+      "backend": "opencl",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "head_comparisons": 180,
+      "cases": 6,
+      "nonexact_head_comparisons": 0,
+      "maximum_nrmse": 0,
+      "maximum_absolute_error": 0
+    }
+  ],
+  "strided_predictor_timings": [
+    {
+      "mode": "bench",
+      "size": "0.6b",
+      "backend": "hexagon",
+      "valid": true,
+      "candidate": "strided-kv",
+      "exit_code": 0,
+      "reason": null,
+      "block_medians_ms": [
+        36.204505499999996,
+        35.585207999999994,
+        36.0428125
+      ],
+      "calls_per_block": [
+        24,
+        24,
+        24
+      ],
+      "all_sampled_codes_identical": true,
+      "reduction_percent_against_mean_A_medians": 1.4905771311815363,
+      "telemetry_samples": 36,
+      "stderr_bytes": 862,
+      "cpuset_values_before_final_monitor_sample": [
+        "/top-app"
+      ],
+      "final_monitor_sample_cpuset": "/top-app",
+      "scheduling_note": "Native /top-app checks passed before and after every timed call. Final monitor sample can observe the process exiting in the root cpuset; no measured call is accepted in that state."
+    },
+    {
+      "mode": "bench",
+      "size": "0.6b",
+      "backend": "opencl",
+      "valid": true,
+      "candidate": "strided-kv",
+      "exit_code": 0,
+      "reason": null,
+      "block_medians_ms": [
+        57.776302,
+        56.442292,
+        57.6357815
+      ],
+      "calls_per_block": [
+        24,
+        24,
+        24
+      ],
+      "all_sampled_codes_identical": true,
+      "reduction_percent_against_mean_A_medians": 2.189978227019873,
+      "telemetry_samples": 140,
+      "stderr_bytes": 1922,
+      "cpuset_values_before_final_monitor_sample": [
+        "/top-app"
+      ],
+      "final_monitor_sample_cpuset": "/",
+      "scheduling_note": "Native /top-app checks passed before and after every timed call. Final monitor sample can observe the process exiting in the root cpuset; no measured call is accepted in that state."
+    },
+    {
+      "mode": "bench",
+      "size": "1.7b",
+      "backend": "hexagon",
+      "valid": true,
+      "candidate": "strided-kv",
+      "exit_code": 0,
+      "reason": null,
+      "block_medians_ms": [
+        36.88875,
+        36.3639845,
+        36.929922
+      ],
+      "calls_per_block": [
+        24,
+        24,
+        24
+      ],
+      "all_sampled_codes_identical": true,
+      "reduction_percent_against_mean_A_medians": 1.4775435136519244,
+      "telemetry_samples": 48,
+      "stderr_bytes": 862,
+      "cpuset_values_before_final_monitor_sample": [
+        "/top-app"
+      ],
+      "final_monitor_sample_cpuset": "/top-app",
+      "scheduling_note": "Native /top-app checks passed before and after every timed call. Final monitor sample can observe the process exiting in the root cpuset; no measured call is accepted in that state."
+    },
+    {
+      "mode": "bench",
+      "size": "1.7b",
+      "backend": "opencl",
+      "valid": true,
+      "candidate": "strided-kv",
+      "exit_code": 0,
+      "reason": null,
+      "block_medians_ms": [
+        58.1578645,
+        58.0888805,
+        58.8306245
+      ],
+      "calls_per_block": [
+        24,
+        24,
+        24
+      ],
+      "all_sampled_codes_identical": true,
+      "reduction_percent_against_mean_A_medians": 0.6929980948809367,
+      "telemetry_samples": 196,
+      "stderr_bytes": 1922,
+      "cpuset_values_before_final_monitor_sample": [
+        "/top-app"
+      ],
+      "final_monitor_sample_cpuset": "/top-app",
+      "scheduling_note": "Native /top-app checks passed before and after every timed call. Final monitor sample can observe the process exiting in the root cpuset; no measured call is accepted in that state."
+    }
+  ],
+  "checks": {
+    "launcher-checks-final.json": {
+      "suite": "inference-free NPU-Max launchers",
+      "tests": 188,
+      "passed": 188,
+      "failed": 0,
+      "hardware_execution": false
+    },
+    "cli-checks.json": {
+      "tests": 19,
+      "passed": 19,
+      "hardware_execution": false
+    },
+    "server-json-checks.json": {
+      "tests": 9,
+      "passed": 9,
+      "unicode_actual": "Caf\u00e9 \u4f60\u597d",
+      "key_in_value_actual": "correct",
+      "surrogate_ok": true
+    },
+    "summary-control-final-result.json": {
+      "mode": "summary",
+      "strict_rejections": 4,
+      "pass": true
+    },
+    "full-control-final-result.json": {
+      "mode": "full",
+      "strict_rejections": 4,
+      "pass": true
+    },
+    "progress-checks.json": {
+      "pipe_updates": 0,
+      "terminal_updates_for_100_immediate_frames": 2,
+      "first_and_last_visible": true,
+      "pass": true,
+      "scope": "exact progress helpers extracted from current src/main.cpp; no model inference"
+    }
+  },
+  "protected_baseline": [
+    {
+      "path": "npu.sh",
+      "sha256": "8854db753099b627cfa3efdcb8b4a71375c1bb17fef6ad4b5d043eb80dc641fd",
+      "match": true
+    },
+    {
+      "path": "tools/npu/launch.py",
+      "sha256": "ee51c041060dda135658558bf5775a524d3f62177eac61651aa8f555844c3fd0",
+      "match": true
+    },
+    {
+      "path": "tools/npu/native-env.sh",
+      "sha256": "a704c243a5854dc677b31702aaa53bf5b9c05abda01a4f65796d6cf192976f31",
+      "match": true
+    },
+    {
+      "path": ".cache/npu/app-build/qwen3-tts-cli",
+      "sha256": "c14b3402b2b553605f2c787a88c94b92bd7d960d4c6f36a816a3c47fc2c8ec71",
+      "match": true
+    },
+    {
+      "path": ".cache/npu/build/src/ggml-hexagon/libggml-htp-v79.so",
+      "sha256": "29befffe763535e28e3f131723e7aa40c0428c50be629cf1e2dccfed3ef80990",
+      "match": true
+    }
+  ],
+  "excluded_results": [
+    {
+      "directory": "timings",
+      "reason": "Initial OpenCL screen accidentally enabled recording via presence of GGML_OPENCL_QCOM_RECORD=0; excluded from clean comparisons. Final initial OpenCL run also invalidated by terminal-state scheduling false positive."
+    },
+    {
+      "directory": "generation-strided",
+      "reason": "Refused before process launch: cpuset /moderate, CPU /background."
+    }
+  ],
+  "source_sha256": {
+    "src/tts_transformer.h": "f5bcb120183aec9e40bb2b6370fab5abc55375eb36e0fb7114d1c16e06ebb055",
+    "src/tts_transformer.cpp": "64205c5ebe11e514aa233dcb01944a63eaa4e9c083f02f0e35657161031df3d4",
+    "src/gguf_loader.cpp": "91813d9ea800d00ced8f0117379a8f6ac432c96887c1f11ce5d45511565f5070",
+    "src/main.cpp": "ad3579eadb7bd5a479b1be9786895149cf5c6efaf619d7fcbdcf7c0033a02bf5",
+    "tools/npu-max/launch.py": "1fde9a339a7ec3052fa5bc88dad8d4ea75665067c5ac0597468d8c9c985f4517",
+    "tools/npu-max/test-token-generation.cpp": "cfbae6652b1c968ab45ebdc4651e757313ba9f9fa2ca9e199060b30ddc4a418f",
+    "tools/npu-max/token-generation.py": "40e2e64a40ae0f6012bb4fefc6e8de1cbd8bd7930a14f2517d8054abd595cabb",
+    "ggml/src/ggml-hexagon/htp/htp-ctx.h": "e143fcbc4dd069767ba9503bf8909a0ab096fd7215555dcb207ccc5d8b6c2194",
+    "ggml/src/ggml-hexagon/htp/main.c": "ff0ea0fc974d1a9599ef763f3fe5312e26f6f1f85092e2e900aa8ee5f57970ac",
+    "ggml/src/ggml-hexagon/htp/matmul-ops.c": "eeb6364d969592b64b3dd958d0caef5735b8d0e7f319b57329d8e2624a878afa",
+    "ggml/src/ggml-opencl/ggml-opencl.cpp": "d736f34861d4988a80c713570a2ca64d9c6fc7e3af99c34f7cd38021b5637c67"
+  },
+  "combined_predictor_timings": [
+    {
+      "mode": "bench",
+      "size": "0.6b",
+      "backend": "hexagon",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "block_medians_ms": [
+        33.991718500000005,
+        32.201042,
+        34.323828
+      ],
+      "calls_per_block": [
+        24,
+        24,
+        24
+      ],
+      "all_sampled_codes_identical": true
+    },
+    {
+      "mode": "bench",
+      "size": "0.6b",
+      "backend": "opencl",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "block_medians_ms": [
+        59.120156,
+        53.8015105,
+        58.9143495
+      ],
+      "calls_per_block": [
+        24,
+        24,
+        24
+      ],
+      "all_sampled_codes_identical": true
+    },
+    {
+      "mode": "bench",
+      "size": "0.6b",
+      "backend": "cpu",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "block_medians_ms": [
+        27.620052,
+        27.295521,
+        28.515729
+      ],
+      "calls_per_block": [
+        24,
+        24,
+        24
+      ],
+      "all_sampled_codes_identical": true
+    },
+    {
+      "mode": "bench",
+      "size": "1.7b",
+      "backend": "hexagon",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "block_medians_ms": [
+        35.180494499999995,
+        33.0709375,
+        35.129244
+      ],
+      "calls_per_block": [
+        24,
+        24,
+        24
+      ],
+      "all_sampled_codes_identical": true
+    },
+    {
+      "mode": "bench",
+      "size": "1.7b",
+      "backend": "opencl",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "block_medians_ms": [
+        53.2725,
+        48.840338,
+        53.4961715
+      ],
+      "calls_per_block": [
+        24,
+        24,
+        24
+      ],
+      "all_sampled_codes_identical": true
+    },
+    {
+      "mode": "bench",
+      "size": "1.7b",
+      "backend": "cpu",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "block_medians_ms": [
+        29.956666,
+        28.9398175,
+        30.033177000000002
+      ],
+      "calls_per_block": [
+        24,
+        24,
+        24
+      ],
+      "all_sampled_codes_identical": true
+    }
+  ],
+  "complete_generation_timings": [
+    {
+      "mode": "generate",
+      "size": "0.6b",
+      "backend": "hexagon",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "block_medians_ms": [
+        1681.052447,
+        1612.878125,
+        1761.221458
+      ],
+      "calls_per_block": [
+        3,
+        3,
+        3
+      ],
+      "all_sampled_codes_identical": true
+    },
+    {
+      "mode": "generate",
+      "size": "0.6b",
+      "backend": "opencl",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "block_medians_ms": [
+        2363.642968,
+        2309.674218,
+        3302.899843
+      ],
+      "calls_per_block": [
+        3,
+        3,
+        3
+      ],
+      "all_sampled_codes_identical": true
+    },
+    {
+      "mode": "generate",
+      "size": "1.7b",
+      "backend": "hexagon",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "block_medians_ms": [
+        2306.726093,
+        2180.629583,
+        2343.410468
+      ],
+      "calls_per_block": [
+        3,
+        3,
+        3
+      ],
+      "all_sampled_codes_identical": true
+    },
+    {
+      "mode": "generate",
+      "size": "1.7b",
+      "backend": "opencl",
+      "valid": true,
+      "candidate": "both",
+      "exit_code": 0,
+      "reason": null,
+      "loaded_libraries": [
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-base.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml-cpu.so.0.15.2",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/libggml.so.0.15.2"
+      ],
+      "block_medians_ms": [
+        3367.647499,
+        2933.356926,
+        3209.812395
+      ],
+      "calls_per_block": [
+        3,
+        3,
+        3
+      ],
+      "all_sampled_codes_identical": true
+    }
+  ],
+  "ggml_head": "78a07870c8702affd1fefed438f518966a7fe4d3"
+}

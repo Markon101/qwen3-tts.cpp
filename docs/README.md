@@ -2,6 +2,7 @@
 
 | File | What it is |
 |------|-----------|
+| [TOKEN_GENERATION_AUDIT.md](TOKEN_GENERATION_AUDIT.md) | Token-generation (Talker + Code Predictor) graph fusion, persistent plans, HTP/OpenCL fixes, foreground benchmarks and compact tracing |
 | [NPU_MAX_BACKEND_AUDIT.md](NPU_MAX_BACKEND_AUDIT.md) | NPU-Max backend, observed placement and historical timing limitations |
 | [NPU_LAUNCHERS.md](NPU_LAUNCHERS.md) | Earlier NPU launcher, voice modes and serial server protocol |
 | [ANDROID_ADRENO830.md](ANDROID_ADRENO830.md) | Android OpenCL setup and device-specific controls |

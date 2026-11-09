@@ -128,6 +128,7 @@ struct transformer_layer {
     struct ggml_tensor * attn_q = nullptr;
     struct ggml_tensor * attn_k = nullptr;
     struct ggml_tensor * attn_v = nullptr;
+    struct ggml_tensor * attn_qkv = nullptr;
     struct ggml_tensor * attn_output = nullptr;
     struct ggml_tensor * attn_q_norm = nullptr;
     struct ggml_tensor * attn_k_norm = nullptr;
@@ -136,6 +137,7 @@ struct transformer_layer {
     
     struct ggml_tensor * ffn_gate = nullptr;
     struct ggml_tensor * ffn_up = nullptr;
+    struct ggml_tensor * ffn_gate_up = nullptr;
     struct ggml_tensor * ffn_down = nullptr;
 };
 
@@ -231,6 +233,23 @@ struct tts_transformer_state {
     // Eval callback — fires for every graph node; use for debugging/profiling.
     ggml_backend_sched_eval_callback eval_cb      = nullptr;
     void *                           eval_cb_data = nullptr;
+
+    // Persistent pre-allocated execution plans for the 15-step Code Predictor
+    // (step 0 = 2-token prefill, steps 1..14 = 1-token autoregressive decode).
+    struct code_pred_step_plan {
+        std::vector<uint8_t> compute_meta;
+        struct ggml_cgraph * gf = nullptr;
+        ggml_backend_sched_t sched = nullptr;
+        struct ggml_tensor * inp_hidden = nullptr;
+        struct ggml_tensor * inp_cb0_embd = nullptr;
+        struct ggml_tensor * inp_pos = nullptr;
+        struct ggml_tensor * logits = nullptr;
+        bool allocated = false;
+    };
+    std::vector<code_pred_step_plan> code_pred_plans;
+    ggml_backend_buffer_t code_pred_plans_kv_buf = nullptr;
+    int32_t code_pred_plans_batch_idx = -1;
+    int32_t code_pred_plans_flags = -1;
 };
 
 // TTS Transformer class
@@ -419,6 +438,11 @@ public:
         if (state_.sched) {
             ggml_backend_sched_set_eval_callback(state_.sched, cb, userdata);
         }
+        for (auto & plan : state_.code_pred_plans) {
+            if (plan.sched) {
+                ggml_backend_sched_set_eval_callback(plan.sched, cb, userdata);
+            }
+        }
     }
     void clear_eval_callback() { set_eval_callback(nullptr, nullptr); }
 
@@ -480,6 +504,9 @@ private:
     // Build computation graph for 2-token prefill of code predictor
     // Processes [past_hidden, codec_embd(codebook_0_token)] together
     struct ggml_cgraph * build_code_pred_prefill_graph(int32_t batch_idx = 0);
+
+    void clear_code_pred_plans();
+    bool ensure_code_pred_plans(int32_t batch_idx, int32_t flags);
     
     // Grow talker KV cache while preserving positions [0, n_positions_to_copy).
     bool extend_kv_cache(int32_t new_ctx, int32_t n_positions_to_copy);

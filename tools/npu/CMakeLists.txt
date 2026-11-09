@@ -32,3 +32,9 @@ target_link_libraries(npu-max-pipeline-stage PRIVATE qwen3_tts)
 
 add_executable(npu-max-test-vocoder-chunks ../npu-max/test-vocoder-chunks.cpp)
 target_link_libraries(npu-max-test-vocoder-chunks PRIVATE qwen3_tts)
+
+add_executable(npu-max-test-token-generation ../npu-max/test-token-generation.cpp)
+target_link_libraries(npu-max-test-token-generation PRIVATE tts_transformer text_tokenizer)
+
+add_executable(npu-max-test-execution-trace ../npu-max/test-execution-trace.cpp)
+target_link_libraries(npu-max-test-execution-trace PRIVATE gguf_loader)

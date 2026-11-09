@@ -1,5 +1,14 @@
 # Fork audit and repeatable checks
 
+The [2026-11-09 token-generation audit](TOKEN_GENERATION_AUDIT.md) documents the
+default-enabled Talker and 15-step Code Predictor graph fusions (`attn_qkv`,
+`ffn_gate_up` + `ggml_swiglu`, strided KV views, and 15 persistent step plans),
+Hexagon HTP (`HTP_MAX_MMAPS=32`, shared-input `src1_spad` reuse, inter-batch
+`dspqueue` spin-poll) and Adreno 830 OpenCL (`rms_norm_fused` view offset) fixes,
+6-cell bit-exact numerical controls, verified `/top-app` foreground predictor and
+32-frame token-generation benchmarks, and compact `summary` tracing. Read it
+before comparing new timings.
+
 This is the entry point for an agent continuing work on this fork. Start with
 repository identity, choose checks for the component being changed, and preserve
 raw evidence. A past pass does not certify another checkout or binary.

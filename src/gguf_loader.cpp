@@ -66,6 +66,8 @@ void audit_write(const std::string & row) {
 bool audit_graph_placement(const char * component, ggml_backend_sched_t sched, ggml_cgraph * graph, std::string * error_msg) {
     const char * trace = getenv("QWEN3_TTS_EXECUTION_TRACE");
     const bool strict = max_enabled("QWEN3_TTS_MAX_STRICT");
+    const char * detail = getenv("QWEN3_TTS_EXECUTION_TRACE_DETAIL");
+    const bool full = !detail || strcmp(detail, "summary") != 0;
     if ((!trace || !trace[0]) && !strict) return true;
     int htp = 0, cpu = 0, other = 0, edges = 0;
     size_t bytes = 0;
@@ -74,6 +76,7 @@ bool audit_graph_placement(const char * component, ggml_backend_sched_t sched, g
     for (const char * p = component ? component : ""; *p; ++p) mix((unsigned char)*p);
     const int n_nodes = ggml_graph_n_nodes(graph);
     mix((uint64_t)n_nodes);
+    mix(full ? 1 : 0);
     for (int i = 0; i < n_nodes; ++i) {
         ggml_tensor * node = ggml_graph_node(graph, i);
         ggml_backend_t backend = ggml_backend_sched_get_tensor_backend(sched, node);
@@ -83,7 +86,7 @@ bool audit_graph_placement(const char * component, ggml_backend_sched_t sched, g
             if (strncmp(name, "HTP", 3) == 0) ++htp;
             else if (backend && ggml_backend_dev_type(ggml_backend_get_device(backend)) == GGML_BACKEND_DEVICE_TYPE_CPU) ++cpu;
             else ++other;
-            if (trace && trace[0]) {
+            if (trace && trace[0] && full) {
                 for (int j = 0; j < GGML_MAX_SRC && node->src[j]; ++j) {
                     ggml_backend_t source = ggml_backend_sched_get_tensor_backend(sched, node->src[j]);
                     if (source && source != backend) { ++edges; bytes += ggml_nbytes(node->src[j]); }
@@ -93,11 +96,13 @@ bool audit_graph_placement(const char * component, ggml_backend_sched_t sched, g
         if (trace && trace[0]) {
             mix((uint64_t)node->op);
             mix((uint64_t)(uintptr_t)backend);
-            mix((uint64_t)ggml_nbytes(node));
-            mix((uint64_t)node->ne[0]);
-            mix((uint64_t)node->ne[1]);
-            mix((uint64_t)node->ne[2]);
-            mix((uint64_t)node->ne[3]);
+            if (full) {
+                mix((uint64_t)ggml_nbytes(node));
+                mix((uint64_t)node->ne[0]);
+                mix((uint64_t)node->ne[1]);
+                mix((uint64_t)node->ne[2]);
+                mix((uint64_t)node->ne[3]);
+            }
         }
     }
     if (trace && trace[0]) {
@@ -108,7 +113,7 @@ bool audit_graph_placement(const char * component, ggml_backend_sched_t sched, g
         if (fresh) {
             std::ostringstream nodes;
             nodes << "[";
-            for (int i = 0; i < n_nodes; ++i) {
+            for (int i = 0; full && i < n_nodes; ++i) {
                 ggml_tensor * node = ggml_graph_node(graph, i);
                 ggml_backend_t backend = ggml_backend_sched_get_tensor_backend(sched, node);
                 const char * name = backend ? ggml_backend_name(backend) : "unassigned";
@@ -122,7 +127,10 @@ bool audit_graph_placement(const char * component, ggml_backend_sched_t sched, g
             std::ostringstream row;
             row << "{\"event\":\"placement\",\"component\":" << audit_quote(component) << ",\"htp_compute_nodes\":" << htp
                 << ",\"cpu_compute_nodes\":" << cpu << ",\"other_compute_nodes\":" << other << ",\"scheduler_splits\":" << ggml_backend_sched_get_n_splits(sched)
-                << ",\"logical_cross_backend_edges\":" << edges << ",\"logical_cross_backend_bytes\":" << bytes << ",\"nodes\":" << nodes.str() << '}';
+                << ",\"detail\":" << audit_quote(full ? "full" : "summary")
+                << ",\"logical_cross_backend_edges\":" << (full ? std::to_string(edges) : "null")
+                << ",\"logical_cross_backend_bytes\":" << (full ? std::to_string(bytes) : "null")
+                << ",\"nodes\":" << nodes.str() << '}';
             audit_write(row.str());
             fprintf(stderr, "  NPU-Max %s: HTP=%d CPU=%d other=%d splits=%d\n", component, htp, cpu, other, ggml_backend_sched_get_n_splits(sched));
         }
