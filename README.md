@@ -1,4 +1,4 @@
-> **Adreno 830 / Termux branch:** build and run the measured phone profiles using [the Android guide](docs/ANDROID_ADRENO830.md). The matching GGML submodule includes a causal-mask correction, an optional kernel cache and a gated two-token kernel. Current logging is measurement-only, with no temperature cutoff. See [results and limitations](docs/performance/adreno830/REPORT.md).
+> **Android / Snapdragon 8 Elite:** This fork includes NPU-Max profiles for HTP, mixed, OpenCL and CPU execution. Start with the [fork audit](docs/FORK_AUDIT.md) for setup, controls and tested scope; the [backend audit](docs/NPU_MAX_BACKEND_AUDIT.md) records placement and historical measurements. Hardware, SDK and model assets are required. The older [Adreno guide](docs/ANDROID_ADRENO830.md) describes the OpenCL path.
 
 ![alt text](docs/assets/qwen-tts-logo.png)
 # qwen3-tts.cpp
@@ -27,6 +27,8 @@ Forked from [predict-woo/qwen3-tts.cpp](https://github.com/predict-woo/qwen3-tts
 
 ## Benchmarks
 
+These inherited Apple measurements are platform-specific and do not benchmark the Android NPU-Max path. Android timing observations and their scheduling limitations are documented in the [backend audit](docs/NPU_MAX_BACKEND_AUDIT.md).
+
 ![PyTorch vs qwen3-tts.cpp benchmark](./docs/benchmarks/benchmark_pytorch_vs_cpp.png)
 
 | Pipeline | PyTorch | qwen3-tts.cpp | Speedup |
@@ -39,7 +41,7 @@ Peak RSS overhead: Basic +19%, Clone +7.7%. Measured on Apple M-series (Metal ba
 ## Quickstart
 
 ```bash
-git clone https://github.com/CHE3MZ/qwen3-tts.cpp.git
+git clone https://github.com/Markon101/qwen3-tts.cpp.git
 cd qwen3-tts.cpp
 git submodule update --init --recursive
 
@@ -63,6 +65,12 @@ Platform-specific build flags:
 | Linux (NVIDIA) | `./tools/build-scripts/build.sh --cuda` |
 | Linux (AMD/Intel) | `./tools/build-scripts/build.sh` (CPU-only) |
 | Windows | `tools\build-scripts\build.bat` (or `build.bat --cuda` for CUDA) |
+
+## Android NPU-Max
+
+On a prepared Android/Termux installation, `sh npu-max.sh --help` shows launcher options. The default `htp` profile and `mixed`, `opencl` and `cpu` profiles select different backend routes; actual graph placement depends on the build and workload. See [NPU-Max setup and checks](docs/FORK_AUDIT.md) and [backend details](docs/NPU_MAX_BACKEND_AUDIT.md). The separate `npu.sh` launcher retains the earlier HTP/OpenCL route.
+
+`--vocoder-chunk-frames` accepts 17–256 (default 100), including up to 16 frames of replayed context. Larger windows trade memory and latency for less overlap; they do not guarantee full-history equivalence or improved speech quality.
 
 ## Architecture
 

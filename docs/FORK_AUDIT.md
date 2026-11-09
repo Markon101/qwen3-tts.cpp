@@ -4,7 +4,7 @@ This is the entry point for an agent continuing work on this fork. Start with
 repository identity, choose checks for the component being changed, and preserve
 raw evidence. A past pass does not certify another checkout or binary.
 
-Last audit: **2026-11-02 UTC**. Scope: the Android NPU-Max fork, larger controllable
+Historical audit: **2026-11-02 UTC**, with subsequent fixes described below. Scope: the Android NPU-Max fork, larger controllable
 vocoder windows, launch routing, numerical continuity and source-level improvement
 opportunities. This was not an exhaustive security audit or a speed benchmark.
 
@@ -97,7 +97,7 @@ sample count and, when audio validation is enabled, finite samples before delive
 | Old-default compatibility | Bit-exact SHA-256 match against pre-edit binary (8 frames, `647a2320...`) and pre-edit decoder source at default 100 (256 frames, `c47c909b...`) |
 | Callback delivery & ICL prefix trimming | Matched offline samples bit-for-bit across HTP, CPU, and OpenCL; ICL `trim_prefix_frames` verified for both single-shot and streaming callback paths |
 | Invalid C++ parameters | Rejected before graph execution; includes direct decoder and callback paths |
-| Server RFC 8259 JSON parser (`test-server-json.py`) | 9/9 passed: `\uXXXX` UTF-8 decoding, UTF-16 surrogate pairs, key-in-value isolation, nested objects, strict `vocoder_chunk_frames` validation, malformed JSON rejection |
+| Server JSON parser (`test-server-json.py`, subsequent fix) | 9/9 reported passed: `\uXXXX` UTF-8 decoding, UTF-16 surrogate pairs, key-in-value isolation, nested objects, strict `vocoder_chunk_frames` validation, malformed JSON rejection |
 | Listening, sustained speed, battery use | Not performed; no new claims for these outcomes |
 
 The waveform probe repeats a saved **16-frame** speech-code sequence to exercise

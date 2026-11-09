@@ -2,6 +2,10 @@
 
 Developer and end-user tools for qwen3-tts.cpp.
 
+## Android launchers
+
+The repository-root `npu-max.sh` selects NPU-Max profiles on a prepared Termux installation; see the [fork audit](../docs/FORK_AUDIT.md). The separate `npu.sh` is documented in [NPU launchers](../docs/NPU_LAUNCHERS.md). Older workspace snapshots are described in [workspace-launchers](workspace-launchers/README.md).
+
 ## model-downloader/
 
 **Easiest path.** Downloads pre-built GGUF files directly from HuggingFace.

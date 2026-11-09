@@ -18,6 +18,9 @@ controls dispatch directly to HTP0 without a CPU scheduler fallback.
 
 ## Pipeline placement and residency
 
+The following table describes the earlier working baseline, not a universal claim
+about NPU-Max placement. See the later migration results for the graphs observed.
+
 | Stage | Working baseline execution | Host work that remains |
 | --- | --- | --- |
 | Text tokenization | CPU C++ | BPE, strings, prompt framing |
@@ -341,7 +344,7 @@ Measured on identical 24-frame (`1.92 s` audio, `46,080` samples) and 13-frame (
 
 ### 6. Profiles Available in `npu-max.sh`
 
-- `--profile htp` (default): 100% HTP acceleration across all stages (Speaker encoder, Talker, Code predictor, Vocoder).
+- `--profile htp` (default): selects HTP for the speaker encoder, talker, code predictor and vocoder. The reported graphs had no CPU nodes; host-side work and the Mimi reference encoder remain on CPU, and other workloads require their own placement checks.
 - `--profile mixed`: HTP for Speaker encoder & Transformer; OpenCL Adreno GPU for Vocoder (alternative engine placement; the normal launcher remains sequential).
 - `--profile opencl`: OpenCL GPU acceleration fallback.
 - `--profile cpu`: CPU reference fallback.

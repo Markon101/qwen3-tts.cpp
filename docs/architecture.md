@@ -196,6 +196,7 @@ CMake 3.14+ with C++17. GGML is vendored as a submodule at `./ggml`.
 | `QWEN3_TTS_KV_F32` | OFF | Use F32 KV cache (2× RAM, bit-exact with Python) |
 | `QWEN3_TTS_TIMING` | OFF | Enable detailed per-stage timing instrumentation |
 | `QWEN3_TTS_COREML` | ON | Build CoreML code predictor bridge (Apple only) |
+| `QWEN3_TTS_AARCH64_MCPU` | `auto` | AArch64 release CPU tuning: `auto`, `oryon-1`, `native`, or `generic`; compiler support is checked |
 
 ### GPU backends
 
@@ -393,7 +394,10 @@ Response format:
 
 Supported fields: `text`, `output`, `reference`, `ref_text`, `embedding_in`,
 `speaker`, `instruct`, `language`, `temperature`, `top_k`, `top_p`,
-`repetition_penalty`, `max_tokens`.
+`repetition_penalty`, `max_tokens`, `vocoder_chunk_frames`. The latter must be an
+integer from 17 to 256; it overrides the process default for that request.
+Malformed JSON is rejected. Check each response's `success` field: a failed request
+does not necessarily stop the server or make its eventual EOF exit nonzero.
 
 ### Streaming prefill modes
 
@@ -484,7 +488,7 @@ tts.set_logits_callback([](int32_t frame_idx,
 ### Streaming audio chunk callback
 
 Delivers decoded PCM as it is produced, without waiting for full synthesis.
-`chunk_frames` controls how many codec frames are batched per callback (default 12 = ~1 second).
+`chunk_frames` controls how many codec frames are batched per callback (default 12 = ~1 second). The emission size is capped by the vocoder graph window minus its 16-frame left context. ICL callbacks exclude the reference prefix. See [vocoder window controls and limits](FORK_AUDIT.md#controllable-vocoder-windows).
 
 ```cpp
 tts.set_audio_chunk_callback([](const float * samples, int32_t n_samples,
