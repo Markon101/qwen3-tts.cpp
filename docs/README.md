@@ -7,6 +7,7 @@
 | [NPU_LAUNCHERS.md](NPU_LAUNCHERS.md) | Earlier NPU launcher, voice modes and serial server protocol |
 | [ANDROID_ADRENO830.md](ANDROID_ADRENO830.md) | Android OpenCL setup and device-specific controls |
 | [FORK_AUDIT.md](FORK_AUDIT.md) | Repeatable fork checks, verified vocoder controls, current results and open issues |
+| [performance/icl-regression-20261110/REPORT.md](performance/icl-regression-20261110/REPORT.md) | ICL decode divergence on HTP: root cause (`src1_spad` reuse layout), single-variable evidence matrix, fix |
 | [architecture.md](architecture.md) | Full technical reference — pipeline, all features, C API, GGUF format, limitations |
 | [porting.md](porting.md) | Guide for forking to build a different TTS model on GGML |
 | [tensor_mapping.md](tensor_mapping.md) | HuggingFace → GGUF tensor name mapping reference |

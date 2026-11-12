@@ -9,6 +9,15 @@ Hexagon HTP (`HTP_MAX_MMAPS=32`, shared-input `src1_spad` reuse, inter-batch
 32-frame token-generation benchmarks, and compact `summary` tracing. Read it
 before comparing new timings.
 
+> [!WARNING]
+> **Current state (2026-11-12):** the optimizations above exist only on branch
+> `npu-max-icl-fix`. A reference-conditioned ICL decode divergence in that work
+> was traced to the Hexagon `src1_spad` dynamic-quantization reuse and fixed on
+> GGML branch `fix/htp-src1-spad-layout-guard`. Read
+> [performance/icl-regression-20261110/REPORT.md](performance/icl-regression-20261110/REPORT.md)
+> before building or benchmarking either branch. Nothing is pushed, and the fixed
+> build has no listening or speed validation yet.
+
 This is the entry point for an agent continuing work on this fork. Start with
 repository identity, choose checks for the component being changed, and preserve
 raw evidence. A past pass does not certify another checkout or binary.
