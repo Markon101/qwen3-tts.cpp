@@ -82,6 +82,13 @@ Work started with clean application and GGML worktrees:
   (verifying `octx->src1_spad.stride == src1_row_size`), avoiding redundant FP32 →
   `Q8_0` dynamic activation quantization on shared-input matmuls (such as Talker
   Q/K/V and Gate/Up).
+  **Correction 2026-11-12:** the pointer/type/stride guard was insufficient — the
+  spad layout also depends on `src0`/`dst` extents, so ops sharing an activation
+  but differing in weight or output shape reused a block quantized for a different
+  layout. That diverged from the CPU record on ICL decode (cosine 0.06–0.22). The
+  reuse is now gated on identical `src0`/`dst` `ne`/`nb` and no `dst`/`src1`
+  aliasing; see
+  [performance/icl-regression-20261110/REPORT.md](performance/icl-regression-20261110/REPORT.md).
 - **Hexagon HTP inter-batch `dspqueue` spin-poll (`main.c`):**
   Adds a bounded 512-iteration `hex_pause()` user-space spin-poll in
   `htp_packet_callback` when `poll_count == DSPQUEUE_POLL_COUNT` so back-to-back

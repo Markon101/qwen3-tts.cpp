@@ -10,13 +10,16 @@ Hexagon HTP (`HTP_MAX_MMAPS=32`, shared-input `src1_spad` reuse, inter-batch
 before comparing new timings.
 
 > [!WARNING]
-> **Current state (2026-11-12):** the optimizations above exist only on branch
-> `npu-max-icl-fix`. A reference-conditioned ICL decode divergence in that work
-> was traced to the Hexagon `src1_spad` dynamic-quantization reuse and fixed on
-> GGML branch `fix/htp-src1-spad-layout-guard`. Read
+> **Current state (2026-11-12):** these optimizations are on
+> `experimental/npu-max` (fast-forwarded) and `npu-max-icl-fix`. A
+> reference-conditioned ICL decode divergence in the original work was traced to
+> the Hexagon `src1_spad` dynamic-quantization reuse and fixed on GGML
+> `fix/htp-src1-spad-layout-guard` (`717597a2`). Read
 > [performance/icl-regression-20261110/REPORT.md](performance/icl-regression-20261110/REPORT.md)
-> before building or benchmarking either branch. Nothing is pushed, and the fixed
-> build has no listening or speed validation yet.
+> before changing or benchmarking the reuse path. Correctness is verified by the
+> clone-prefill probe and by a user listening pass on 0.6B HTP ICL long-form;
+> plain TTS, 1.7B, OpenCL, server and batch are unverified on the fixed build,
+> and no measured speed comparison exists.
 
 This is the entry point for an agent continuing work on this fork. Start with
 repository identity, choose checks for the component being changed, and preserve

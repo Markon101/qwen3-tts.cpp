@@ -1,7 +1,8 @@
 # ICL voice-cloning divergence: root cause and fix — 2026-11-12
 
-Status: **root cause identified, fix probe-verified and end-to-end verified to
-produce non-silent audio; not pushed, not listening-tested, no performance claim.**
+Status: **root cause identified; fix verified by probe, by an end-to-end render,
+and by a user listening pass on long-form ICL (2026-11-12). Pushed to `origin`;
+no measured performance claim.**
 
 This supersedes the 2026-11-10 conclusion that `HTP_MAX_MMAPS 16 -> 32` alone
 caused the ICL decode divergence. That conclusion is **refuted** below.
@@ -79,9 +80,12 @@ local `.cache/icl-debug/phase2/` (gitignored, regenerable with `run-probe.sh`).
 - **NOT ESTABLISHED** — How often the guarded reuse still fires. With fused
   QKV/GateUp there may be few eligible consecutive pairs, so the optimization's
   remaining value is unquantified and would need a foreground measurement.
-- **NOT ESTABLISHED** — Speech quality. The probe reports
-  `speech_quality_tested: false` by design; the end-to-end gate below only shows
-  that non-silent audio of plausible duration is produced.
+- **NOT ESTABLISHED** — Measured speed. The user reports the fixed build is
+  faster than the previous one, but no timing was recorded in this work, so no
+  number is claimed and no comparison table exists.
+- **PARTLY ESTABLISHED** — Speech quality: confirmed by the user for 0.6B HTP ICL
+  long-form on 2026-11-12. The probe itself reports
+  `speech_quality_tested: false` by design and cannot substitute for that.
 
 ## Fix
 
@@ -114,8 +118,19 @@ do not read it as a regression.
 | `npu-max-icl-fix` + V6 (fix) | exit 0, vocoder splits 1 | 4.08 s, peak 0.337, RMS 0.0416 |
 
 Both are non-silent. The duration difference is expected under the default
-sampling settings and says nothing about correctness either way; the listening
-pass is still owed.
+sampling settings and says nothing about correctness either way.
+
+## User validation
+
+On 2026-11-12 the user rendered long-form Butterverse takes through
+`butterverse_longform_queue.sh` (0.6B, `htp`, ICL reference + transcript) on the
+fixed build and reported that long-form generation and ICL voice cloning work as
+expected, and that the build is faster than the one it replaces.
+
+Treat that as a **user report, not a measurement**: no timing was recorded and no
+speed claim is made here. It does establish that the reported symptom — garbled,
+silent or overlong ICL output — is gone in the configuration the user actually
+uses, which the probe alone could not show.
 
 ## Reproduce
 
@@ -143,10 +158,11 @@ QWEN3_TTS_VALIDATE_AUDIO=1 QWEN3_TTS_VALIDATE_LOGITS=1 \
 
 ## Open items
 
-- Listening pass on the fixed build, including a long-form take where the
-  original symptom was most visible.
 - Coverage not yet exercised with the fixed library: plain non-ICL TTS, 1.7B,
-  OpenCL, server path, batch.
-- `origin/experimental/npu-max` and ggml `origin/experimental/npu-max` still
-  point at the broken `38b8208` / `78a07870`. Any fresh checkout of those
-  branches gets silent ICL corruption. Not touched; needs a decision.
+  OpenCL/`mixed`, server path, batch.
+- No measured performance comparison exists. If the speed gain matters for a
+  release note, run a foreground (`/top-app`) matched comparison against
+  `9ac729b`; do not cite a number without one.
+- `experimental/npu-max` (application and GGML) is fast-forwarded to the fix, so a
+  fresh checkout no longer carries the defect. The broken commits remain in
+  history: application `38b8208`, GGML `78a07870`.
