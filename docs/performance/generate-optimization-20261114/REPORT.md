@@ -213,3 +213,18 @@ Raw evidence is retained in `.cache/generate-opt-20261114/`: original executable
 - `ggml/src/ggml-hexagon/ggml-hexagon.cpp:3121` — Backend F32-only GET_ROWS support.
 - `ggml/src/ggml-backend.cpp:2285` — Non-owning CPU wrapper: free_buffer is NULL.
 - `ggml/src/ggml-hexagon/ggml-hexagon.cpp:1713` — HTP F16 default memcpy get path.
+
+
+## Owner validation — 2026-11-14
+
+After testing the optimized build, the owner reported substantial speed
+improvements with both the smaller (0.6B) and larger (1.7B) models, good audio
+quality, no crashes or other issues during long runs, and no unwanted leading
+or trailing silence. The owner accepted the result and authorized publication.
+This feedback applies to the current optimization series, including Mimi
+convolutions (`3b620ac`) and the shared-memory text-vocabulary view (`da3c094`).
+
+This is user listening and operational validation, separate from the controlled
+A/B measurements above. Exact run commands, durations and backend profiles were
+not supplied with the feedback; it adds no new numerical speedup claim or
+independently instrumented 1.7B end-to-end benchmark.

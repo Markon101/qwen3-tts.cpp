@@ -1,5 +1,16 @@
 # Fork audit and repeatable checks
 
+Latest optimization state (**2026-11-14**): `3b620ac` adds the validated Mimi
+convolution optimization, and `da3c094` removes repeated full-vocabulary HTP-to-CPU
+copies through a non-owning CPU view of the existing F16 shared-memory tensor.
+See the [generation optimization report](performance/generate-optimization-20261114/REPORT.md)
+for controlled short/long ICL timing, exact output controls, memory observations,
+and limits. The owner subsequently reported substantial speed improvements,
+good audio, stable long runs and no unwanted leading/trailing silence on both
+model sizes; the report records that qualitative validation separately from the
+instrumented benchmarks. The corrected GGML `717597a2` runtime and protected
+baseline remain unchanged.
+
 The [2026-11-09 token-generation audit](TOKEN_GENERATION_AUDIT.md) documents the
 default-enabled Talker and 15-step Code Predictor graph fusions (`attn_qkv`,
 `ffn_gate_up` + `ggml_swiglu`, strided KV views, and 15 persistent step plans),
@@ -10,7 +21,7 @@ Hexagon HTP (`HTP_MAX_MMAPS=32`, shared-input `src1_spad` reuse, inter-batch
 before comparing new timings.
 
 > [!WARNING]
-> **Current state (2026-11-12):** these optimizations are on
+> **Historical state (2026-11-12):** these optimizations are on
 > `experimental/npu-max` (fast-forwarded) and `npu-max-icl-fix`. A
 > reference-conditioned ICL decode divergence in the original work was traced to
 > the Hexagon `src1_spad` dynamic-quantization reuse and fixed on GGML
