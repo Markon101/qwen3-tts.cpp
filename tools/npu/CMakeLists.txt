@@ -42,3 +42,8 @@ target_link_libraries(npu-max-test-execution-trace PRIVATE gguf_loader)
 add_executable(npu-max-test-mimi-conv ../npu-max/test-mimi-conv.cpp)
 target_link_libraries(npu-max-test-mimi-conv PRIVATE mimi_encoder)
 add_test(NAME mimi_conv_test COMMAND npu-max-test-mimi-conv)
+
+add_executable(npu-max-test-htp-text-embedding ../npu-max/test-htp-text-embedding.cpp)
+target_link_libraries(npu-max-test-htp-text-embedding PRIVATE tts_transformer)
+add_executable(npu-max-test-generation-synthesis ../npu-max/test-generation-synthesis.cpp)
+target_link_libraries(npu-max-test-generation-synthesis PRIVATE qwen3_tts)

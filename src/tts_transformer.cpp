@@ -921,7 +921,7 @@ bool TTSTransformer::load_tensor_data(const std::string & path, struct gguf_cont
         struct ggml_tensor * tensor = it->second;
         size_t nbytes = ggml_nbytes(tensor);
         tensor_offsets[tensor] = offset;
-        
+
         read_buf.resize(nbytes);
         
         if (
@@ -994,7 +994,42 @@ bool TTSTransformer::load_tensor_data(const std::string & path, struct gguf_cont
     }
     
     fclose(f);
-    
+
+    // F16 weights are plain bytes in HTP shared DDR (unlike repacked quants).
+    // GET_ROWS currently falls back to CPU; expose a non-owning CPU alias so
+    // the scheduler gathers in place instead of copying the entire vocabulary.
+    // The main model buffer remains the sole owner of the weight allocation.
+    const char * host_text = getenv("QWEN3_TTS_HTP_HOST_TEXT_EMBD");
+    if (model_.text_embd && model_.text_embd->type == GGML_TYPE_F16 &&
+        strncmp(ggml_backend_name(backend), "HTP", 3) == 0 &&
+        (!host_text || strcmp(host_text, "0") != 0) &&
+        (uintptr_t)model_.text_embd->data % ggml_backend_buft_get_alignment(ggml_backend_cpu_buffer_type()) == 0) {
+        const ggml_init_params probe_params = {2 * ggml_tensor_overhead(), nullptr, true};
+        ggml_context * probe = ggml_init(probe_params);
+        if (!probe) {
+            error_msg_ = "Failed to create text embedding placement probe";
+            return false;
+        }
+        ggml_tensor * ids = ggml_new_tensor_1d(probe, GGML_TYPE_I32, 1);
+        ggml_tensor * rows = ggml_get_rows(probe, model_.text_embd, ids);
+        const bool cpu_gather = !ggml_backend_supports_op(backend, rows);
+        ggml_free(probe);
+        if (cpu_gather) {
+            model_.text_embd_buffer = ggml_backend_cpu_buffer_from_ptr(
+                model_.text_embd->data, ggml_nbytes(model_.text_embd));
+            ggml_tensor * alias = ggml_dup_tensor(model_.ctx, model_.text_embd);
+            if (!model_.text_embd_buffer || ggml_backend_tensor_alloc(
+                    model_.text_embd_buffer, alias, model_.text_embd->data) != GGML_STATUS_SUCCESS) {
+                error_msg_ = "Failed to create CPU text embedding view";
+                return false;
+            }
+            ggml_set_name(alias, model_.text_embd->name);
+            ggml_backend_buffer_set_usage(model_.text_embd_buffer, GGML_BACKEND_BUFFER_USAGE_WEIGHTS);
+            model_.text_embd = alias;
+            fprintf(stderr, "  HTP text embedding: zero-copy CPU view of %zu bytes\n",
+                    ggml_backend_buffer_get_size(model_.text_embd_buffer));
+        }
+    }
     return true;
 }
 
@@ -1418,8 +1453,8 @@ bool TTSTransformer::project_text_tokens(const int32_t * text_tokens, int32_t n_
     ggml_set_name(inp_tokens, "inp_text_tokens");
     ggml_set_input(inp_tokens);
 
-    struct ggml_tensor * cur = ggml_get_rows(ctx0, model_.text_embd, inp_tokens);
-    cur = ggml_mul_mat(ctx0, model_.text_proj_fc1, cur);
+    struct ggml_tensor * rows = ggml_get_rows(ctx0, model_.text_embd, inp_tokens);
+    struct ggml_tensor * cur = ggml_mul_mat(ctx0, model_.text_proj_fc1, rows);
     cur = ggml_add(ctx0, cur, model_.text_proj_fc1_bias);
     cur = ggml_silu(ctx0, cur);
     cur = ggml_mul_mat(ctx0, model_.text_proj_fc2, cur);
@@ -1428,6 +1463,15 @@ bool TTSTransformer::project_text_tokens(const int32_t * text_tokens, int32_t n_
     ggml_set_name(cur, "text_proj_out");
     ggml_set_output(cur);
     ggml_build_forward_expand(gf, cur);
+
+    if (model_.text_embd_buffer) {
+        // A CPU-resident gather otherwise propagates CPU placement through the
+        // projection. Preserve the existing HTP MLP and copy only gathered rows.
+        for (int i = 0; i < ggml_graph_n_nodes(gf); ++i) {
+            ggml_tensor * node = ggml_graph_node(gf, i);
+            if (node != rows) ggml_backend_sched_set_tensor_backend(state_.sched, node, state_.backend);
+        }
+    }
 
     if (!ggml_backend_sched_alloc_graph(state_.sched, gf)) {
         error_msg_ = "Failed to allocate text projection graph";
@@ -4756,6 +4800,10 @@ bool TTSTransformer::generate_batch(
 }
 
 void free_transformer_model(tts_transformer_model & model) {
+    if (model.text_embd_buffer) {
+        ggml_backend_buffer_free(model.text_embd_buffer);
+        model.text_embd_buffer = nullptr;
+    }
     if (model.buffer) {
         ggml_backend_buffer_free(model.buffer);
         model.buffer = nullptr;

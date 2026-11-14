@@ -185,6 +185,9 @@ struct tts_transformer_model {
     
     // Backend buffer for weights
     ggml_backend_buffer_t buffer = nullptr;
+    // Non-owning CPU view of the F16 vocabulary in HTP shared DDR.
+    // Free this wrapper before the main buffer that owns the weight storage.
+    ggml_backend_buffer_t text_embd_buffer = nullptr;
     
     // Tensor name to tensor mapping
     std::map<std::string, struct ggml_tensor *> tensors;

@@ -1,0 +1,799 @@
+{
+  "baseline": "3b620ac93e5836fe6194c6e845695cdf6ba6253a",
+  "ggml": "717597a2aa208a78b773a146544f4d28825ff08b",
+  "final_trials": [
+    {
+      "label": "short-A3",
+      "exit": 0,
+      "wall_ms": 11072.786453994922,
+      "all_top_app": true,
+      "cpuset_counts": {
+        "/top-app": 110
+      },
+      "samples": 184320,
+      "command": [
+        "sh",
+        "tools/npu-max/native-env.sh",
+        ".cache/generate-opt-20261114/before-synthesis",
+        "../../models/qwen3-tts-0.6b-q8_0.gguf",
+        "../../models/qwen3-tts-tokenizer-f16-f32.gguf",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/investigation-20261113/reference-3s.wav",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-reference.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-text.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-A3",
+        "96",
+        "20261114",
+        "0"
+      ],
+      "environment": {
+        "QWEN3_TTS_TRANSFORMER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_BACKEND": "hexagon",
+        "QWEN3_TTS_DECODER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_FFT": "1",
+        "QWEN3_TTS_MAX_VOCODER": "1",
+        "QWEN3_TTS_MAX_STRICT": "1",
+        "QWEN3_TTS_VALIDATE_AUDIO": "1",
+        "QWEN3_TTS_VALIDATE_LOGITS": "1",
+        "QWEN3_TTS_EXECUTION_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-A3-placement.jsonl",
+        "QWEN3_TTS_EXECUTION_TRACE_DETAIL": "summary",
+        "GGML_HEXAGON_TRANSFER_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-A3-transfer.jsonl",
+        "GGML_HEXAGON_PROFILE": "0",
+        "GGML_HEXAGON_VERBOSE": "0"
+      },
+      "speaker_ms": 51,
+      "mimi_ms": 1051,
+      "reference_cache_hit": false,
+      "frames": 96,
+      "duration_s": 7.68,
+      "load_ms": 1678.677,
+      "generate_ms": 5410,
+      "decode_ms": 2639,
+      "total_ms": 9177,
+      "synth_wall_ms": 9183.32,
+      "rms": 0.0177565748,
+      "rss_peak_bytes": 1286434816,
+      "-codes.i32_sha256": "4ed0f3e5a6edbc5471cb48298e0f7ff9972c1ae5d12471a4356f7ec31a8a7e3f",
+      "-audio.f32_sha256": "3db04194cf120825e4dd3eb76b972256240249d436ae2649a6bcf21047f687d4",
+      "-reference-codes.i32_sha256": "80bc0bb38d057323b3c8dcad2eb3c95b158763953235b4879211ac137842d4be",
+      ".wav_sha256": "b0cf06c2a817303476cab70a0971cbc6f1800e5e0f952345c02de56edae4bae2",
+      "synthesis_rtf": 1.194921875,
+      "process_rtf": 1.441769069530589,
+      "sampled_max_rss_kib": 1256652,
+      "aoss0_millic_min_max": [
+        44400,
+        71400
+      ],
+      "transfer_counters": [
+        {
+          "kind": "htp_transfer_counters",
+          "schema": 1,
+          "process_id": 20215,
+          "session_id": 0,
+          "device_id": 0,
+          "tensor_set_calls": 4204,
+          "tensor_set_logical_bytes": 1778887576,
+          "tensor_get_calls": 1763,
+          "tensor_get_logical_bytes": 4504396864,
+          "repack_set_calls": 243,
+          "repack_set_logical_bytes": 613875712,
+          "repack_get_calls": 0,
+          "repack_get_logical_bytes": 0,
+          "batch_dispatches": 1573,
+          "dispatched_operations": 210713,
+          "flush_calls": 7850,
+          "empty_flush_calls": 6302,
+          "physical_ddr_bytes_measured": false
+        }
+      ]
+    },
+    {
+      "label": "short-view-B",
+      "exit": 0,
+      "wall_ms": 10775.770567997824,
+      "all_top_app": true,
+      "cpuset_counts": {
+        "/top-app": 107
+      },
+      "samples": 184320,
+      "command": [
+        "sh",
+        "tools/npu-max/native-env.sh",
+        ".cache/npu-max/app-build/tools/npu/npu-max-test-generation-synthesis",
+        "../../models/qwen3-tts-0.6b-q8_0.gguf",
+        "../../models/qwen3-tts-tokenizer-f16-f32.gguf",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/investigation-20261113/reference-3s.wav",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-reference.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-text.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-view-B",
+        "96",
+        "20261114",
+        "0"
+      ],
+      "environment": {
+        "QWEN3_TTS_TRANSFORMER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_BACKEND": "hexagon",
+        "QWEN3_TTS_DECODER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_FFT": "1",
+        "QWEN3_TTS_MAX_VOCODER": "1",
+        "QWEN3_TTS_MAX_STRICT": "1",
+        "QWEN3_TTS_VALIDATE_AUDIO": "1",
+        "QWEN3_TTS_VALIDATE_LOGITS": "1",
+        "QWEN3_TTS_EXECUTION_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-view-B-placement.jsonl",
+        "QWEN3_TTS_EXECUTION_TRACE_DETAIL": "summary",
+        "GGML_HEXAGON_TRANSFER_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-view-B-transfer.jsonl",
+        "GGML_HEXAGON_PROFILE": "0",
+        "GGML_HEXAGON_VERBOSE": "0"
+      },
+      "speaker_ms": 53,
+      "mimi_ms": 1065,
+      "reference_cache_hit": false,
+      "frames": 96,
+      "duration_s": 7.68,
+      "load_ms": 1949.114,
+      "generate_ms": 4686,
+      "decode_ms": 2733,
+      "total_ms": 8571,
+      "synth_wall_ms": 8578.245,
+      "rms": 0.0177565748,
+      "rss_peak_bytes": 663785472,
+      "-codes.i32_sha256": "4ed0f3e5a6edbc5471cb48298e0f7ff9972c1ae5d12471a4356f7ec31a8a7e3f",
+      "-audio.f32_sha256": "3db04194cf120825e4dd3eb76b972256240249d436ae2649a6bcf21047f687d4",
+      "-reference-codes.i32_sha256": "80bc0bb38d057323b3c8dcad2eb3c95b158763953235b4879211ac137842d4be",
+      ".wav_sha256": "b0cf06c2a817303476cab70a0971cbc6f1800e5e0f952345c02de56edae4bae2",
+      "synthesis_rtf": 1.116015625,
+      "process_rtf": 1.4030951260413835,
+      "sampled_max_rss_kib": 736676,
+      "aoss0_millic_min_max": [
+        39300,
+        70200
+      ],
+      "transfer_counters": [
+        {
+          "kind": "htp_transfer_counters",
+          "schema": 1,
+          "process_id": 23878,
+          "session_id": 0,
+          "device_id": 0,
+          "tensor_set_calls": 4204,
+          "tensor_set_logical_bytes": 1778887576,
+          "tensor_get_calls": 1756,
+          "tensor_get_logical_bytes": 148087872,
+          "repack_set_calls": 243,
+          "repack_set_logical_bytes": 613875712,
+          "repack_get_calls": 0,
+          "repack_get_logical_bytes": 0,
+          "batch_dispatches": 1573,
+          "dispatched_operations": 210713,
+          "flush_calls": 7843,
+          "empty_flush_calls": 6295,
+          "physical_ddr_bytes_measured": false
+        }
+      ]
+    },
+    {
+      "label": "short-A4",
+      "exit": 0,
+      "wall_ms": 11479.937391006388,
+      "all_top_app": true,
+      "cpuset_counts": {
+        "/top-app": 114
+      },
+      "samples": 184320,
+      "command": [
+        "sh",
+        "tools/npu-max/native-env.sh",
+        ".cache/generate-opt-20261114/before-synthesis",
+        "../../models/qwen3-tts-0.6b-q8_0.gguf",
+        "../../models/qwen3-tts-tokenizer-f16-f32.gguf",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/investigation-20261113/reference-3s.wav",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-reference.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-text.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-A4",
+        "96",
+        "20261114",
+        "0"
+      ],
+      "environment": {
+        "QWEN3_TTS_TRANSFORMER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_BACKEND": "hexagon",
+        "QWEN3_TTS_DECODER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_FFT": "1",
+        "QWEN3_TTS_MAX_VOCODER": "1",
+        "QWEN3_TTS_MAX_STRICT": "1",
+        "QWEN3_TTS_VALIDATE_AUDIO": "1",
+        "QWEN3_TTS_VALIDATE_LOGITS": "1",
+        "QWEN3_TTS_EXECUTION_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-A4-placement.jsonl",
+        "QWEN3_TTS_EXECUTION_TRACE_DETAIL": "summary",
+        "GGML_HEXAGON_TRANSFER_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/short-A4-transfer.jsonl",
+        "GGML_HEXAGON_PROFILE": "0",
+        "GGML_HEXAGON_VERBOSE": "0"
+      },
+      "speaker_ms": 54,
+      "mimi_ms": 1054,
+      "reference_cache_hit": false,
+      "frames": 96,
+      "duration_s": 7.68,
+      "load_ms": 1955.456,
+      "generate_ms": 5402,
+      "decode_ms": 2690,
+      "total_ms": 9236,
+      "synth_wall_ms": 9244.413,
+      "rms": 0.0177565748,
+      "rss_peak_bytes": 1286709248,
+      "-codes.i32_sha256": "4ed0f3e5a6edbc5471cb48298e0f7ff9972c1ae5d12471a4356f7ec31a8a7e3f",
+      "-audio.f32_sha256": "3db04194cf120825e4dd3eb76b972256240249d436ae2649a6bcf21047f687d4",
+      "-reference-codes.i32_sha256": "80bc0bb38d057323b3c8dcad2eb3c95b158763953235b4879211ac137842d4be",
+      ".wav_sha256": "b0cf06c2a817303476cab70a0971cbc6f1800e5e0f952345c02de56edae4bae2",
+      "synthesis_rtf": 1.2026041666666667,
+      "process_rtf": 1.4947835144539567,
+      "sampled_max_rss_kib": 1256920,
+      "aoss0_millic_min_max": [
+        41300,
+        69500
+      ],
+      "transfer_counters": [
+        {
+          "kind": "htp_transfer_counters",
+          "schema": 1,
+          "process_id": 25230,
+          "session_id": 0,
+          "device_id": 0,
+          "tensor_set_calls": 4204,
+          "tensor_set_logical_bytes": 1778887576,
+          "tensor_get_calls": 1763,
+          "tensor_get_logical_bytes": 4504396864,
+          "repack_set_calls": 243,
+          "repack_set_logical_bytes": 613875712,
+          "repack_get_calls": 0,
+          "repack_get_logical_bytes": 0,
+          "batch_dispatches": 1573,
+          "dispatched_operations": 210713,
+          "flush_calls": 7850,
+          "empty_flush_calls": 6302,
+          "physical_ddr_bytes_measured": false
+        }
+      ]
+    },
+    {
+      "label": "long-A3",
+      "exit": 0,
+      "wall_ms": 78762.808458996,
+      "all_top_app": true,
+      "cpuset_counts": {
+        "/top-app": 782
+      },
+      "samples": 1474560,
+      "command": [
+        "sh",
+        "tools/npu-max/native-env.sh",
+        ".cache/generate-opt-20261114/before-synthesis",
+        "../../models/qwen3-tts-0.6b-q8_0.gguf",
+        "../../models/qwen3-tts-tokenizer-f16-f32.gguf",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/../../smalldon.wav",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-reference.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-text.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-A3",
+        "768",
+        "20261114",
+        "0"
+      ],
+      "environment": {
+        "QWEN3_TTS_TRANSFORMER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_BACKEND": "hexagon",
+        "QWEN3_TTS_DECODER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_FFT": "1",
+        "QWEN3_TTS_MAX_VOCODER": "1",
+        "QWEN3_TTS_MAX_STRICT": "1",
+        "QWEN3_TTS_VALIDATE_AUDIO": "1",
+        "QWEN3_TTS_VALIDATE_LOGITS": "1",
+        "QWEN3_TTS_EXECUTION_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-A3-placement.jsonl",
+        "QWEN3_TTS_EXECUTION_TRACE_DETAIL": "summary",
+        "GGML_HEXAGON_TRANSFER_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-A3-transfer.jsonl",
+        "GGML_HEXAGON_PROFILE": "0",
+        "GGML_HEXAGON_VERBOSE": "0"
+      },
+      "speaker_ms": 976,
+      "mimi_ms": 8516,
+      "reference_cache_hit": false,
+      "frames": 768,
+      "duration_s": 61.44,
+      "load_ms": 1595.665,
+      "generate_ms": 44423,
+      "decode_ms": 22840,
+      "total_ms": 76789,
+      "synth_wall_ms": 76842.342,
+      "rms": 0.0310115219,
+      "rss_peak_bytes": 1304502272,
+      "-codes.i32_sha256": "009f56e03ef2acd36969962d3f5b6d13761a28ddec6ae8ded44ac3c79ce3f2f0",
+      "-audio.f32_sha256": "418df1acf6869f1cd52de99748371173c1e67b7e41c70be633f8832447fc082e",
+      "-reference-codes.i32_sha256": "0b1a169d1db142301d2dade1d0ee9dd9da1f60a15bb93cb52062e212b7d0b6f1",
+      ".wav_sha256": "5f7f1ce7a91aa6e57c1a9612f676876826e303e6dee6cc438fa4f0ed62d45d25",
+      "synthesis_rtf": 1.2498209635416668,
+      "process_rtf": 1.281946752262305,
+      "sampled_max_rss_kib": 1276228,
+      "aoss0_millic_min_max": [
+        46700,
+        74500
+      ],
+      "transfer_counters": [
+        {
+          "kind": "htp_transfer_counters",
+          "schema": 1,
+          "process_id": 25655,
+          "session_id": 0,
+          "device_id": 0,
+          "tensor_set_calls": 26612,
+          "tensor_set_logical_bytes": 1837559664,
+          "tensor_get_calls": 13232,
+          "tensor_get_logical_bytes": 4612324928,
+          "repack_set_calls": 243,
+          "repack_set_logical_bytes": 613875712,
+          "repack_get_calls": 0,
+          "repack_get_logical_bytes": 0,
+          "batch_dispatches": 12531,
+          "dispatched_operations": 1689240,
+          "flush_calls": 62390,
+          "empty_flush_calls": 50062,
+          "physical_ddr_bytes_measured": false
+        }
+      ]
+    },
+    {
+      "label": "long-view-B",
+      "exit": 0,
+      "wall_ms": 76248.54174099164,
+      "all_top_app": true,
+      "cpuset_counts": {
+        "/top-app": 757
+      },
+      "samples": 1474560,
+      "command": [
+        "sh",
+        "tools/npu-max/native-env.sh",
+        ".cache/npu-max/app-build/tools/npu/npu-max-test-generation-synthesis",
+        "../../models/qwen3-tts-0.6b-q8_0.gguf",
+        "../../models/qwen3-tts-tokenizer-f16-f32.gguf",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/../../smalldon.wav",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-reference.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-text.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-view-B",
+        "768",
+        "20261114",
+        "0"
+      ],
+      "environment": {
+        "QWEN3_TTS_TRANSFORMER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_BACKEND": "hexagon",
+        "QWEN3_TTS_DECODER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_FFT": "1",
+        "QWEN3_TTS_MAX_VOCODER": "1",
+        "QWEN3_TTS_MAX_STRICT": "1",
+        "QWEN3_TTS_VALIDATE_AUDIO": "1",
+        "QWEN3_TTS_VALIDATE_LOGITS": "1",
+        "QWEN3_TTS_EXECUTION_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-view-B-placement.jsonl",
+        "QWEN3_TTS_EXECUTION_TRACE_DETAIL": "summary",
+        "GGML_HEXAGON_TRANSFER_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-view-B-transfer.jsonl",
+        "GGML_HEXAGON_PROFILE": "0",
+        "GGML_HEXAGON_VERBOSE": "0"
+      },
+      "speaker_ms": 1006,
+      "mimi_ms": 7987,
+      "reference_cache_hit": false,
+      "frames": 768,
+      "duration_s": 61.44,
+      "load_ms": 1973.416,
+      "generate_ms": 42837,
+      "decode_ms": 22133,
+      "total_ms": 74004,
+      "synth_wall_ms": 74053.807,
+      "rms": 0.0310115219,
+      "rss_peak_bytes": 681373696,
+      "-codes.i32_sha256": "009f56e03ef2acd36969962d3f5b6d13761a28ddec6ae8ded44ac3c79ce3f2f0",
+      "-audio.f32_sha256": "418df1acf6869f1cd52de99748371173c1e67b7e41c70be633f8832447fc082e",
+      "-reference-codes.i32_sha256": "0b1a169d1db142301d2dade1d0ee9dd9da1f60a15bb93cb52062e212b7d0b6f1",
+      ".wav_sha256": "5f7f1ce7a91aa6e57c1a9612f676876826e303e6dee6cc438fa4f0ed62d45d25",
+      "synthesis_rtf": 1.2044921875,
+      "process_rtf": 1.2410244423989525,
+      "sampled_max_rss_kib": 1044128,
+      "aoss0_millic_min_max": [
+        32400,
+        75300
+      ],
+      "transfer_counters": [
+        {
+          "kind": "htp_transfer_counters",
+          "schema": 1,
+          "process_id": 29663,
+          "session_id": 0,
+          "device_id": 0,
+          "tensor_set_calls": 26612,
+          "tensor_set_logical_bytes": 1837559664,
+          "tensor_get_calls": 13225,
+          "tensor_get_logical_bytes": 256015936,
+          "repack_set_calls": 243,
+          "repack_set_logical_bytes": 613875712,
+          "repack_get_calls": 0,
+          "repack_get_logical_bytes": 0,
+          "batch_dispatches": 12531,
+          "dispatched_operations": 1689240,
+          "flush_calls": 62383,
+          "empty_flush_calls": 50055,
+          "physical_ddr_bytes_measured": false
+        }
+      ]
+    },
+    {
+      "label": "long-A4",
+      "exit": 0,
+      "wall_ms": 78853.25215800549,
+      "all_top_app": true,
+      "cpuset_counts": {
+        "/top-app": 783
+      },
+      "samples": 1474560,
+      "command": [
+        "sh",
+        "tools/npu-max/native-env.sh",
+        ".cache/generate-opt-20261114/before-synthesis",
+        "../../models/qwen3-tts-0.6b-q8_0.gguf",
+        "../../models/qwen3-tts-tokenizer-f16-f32.gguf",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/../../smalldon.wav",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-reference.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-text.txt",
+        "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-A4",
+        "768",
+        "20261114",
+        "0"
+      ],
+      "environment": {
+        "QWEN3_TTS_TRANSFORMER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_BACKEND": "hexagon",
+        "QWEN3_TTS_DECODER_BACKEND": "hexagon",
+        "QWEN3_TTS_ENCODER_FFT": "1",
+        "QWEN3_TTS_MAX_VOCODER": "1",
+        "QWEN3_TTS_MAX_STRICT": "1",
+        "QWEN3_TTS_VALIDATE_AUDIO": "1",
+        "QWEN3_TTS_VALIDATE_LOGITS": "1",
+        "QWEN3_TTS_EXECUTION_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-A4-placement.jsonl",
+        "QWEN3_TTS_EXECUTION_TRACE_DETAIL": "summary",
+        "GGML_HEXAGON_TRANSFER_TRACE": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114/long-A4-transfer.jsonl",
+        "GGML_HEXAGON_PROFILE": "0",
+        "GGML_HEXAGON_VERBOSE": "0"
+      },
+      "speaker_ms": 960,
+      "mimi_ms": 8164,
+      "reference_cache_hit": false,
+      "frames": 768,
+      "duration_s": 61.44,
+      "load_ms": 2097.347,
+      "generate_ms": 44185,
+      "decode_ms": 23098,
+      "total_ms": 76449,
+      "synth_wall_ms": 76503.807,
+      "rms": 0.0310115219,
+      "rss_peak_bytes": 1304326144,
+      "-codes.i32_sha256": "009f56e03ef2acd36969962d3f5b6d13761a28ddec6ae8ded44ac3c79ce3f2f0",
+      "-audio.f32_sha256": "418df1acf6869f1cd52de99748371173c1e67b7e41c70be633f8832447fc082e",
+      "-reference-codes.i32_sha256": "0b1a169d1db142301d2dade1d0ee9dd9da1f60a15bb93cb52062e212b7d0b6f1",
+      ".wav_sha256": "5f7f1ce7a91aa6e57c1a9612f676876826e303e6dee6cc438fa4f0ed62d45d25",
+      "synthesis_rtf": 1.244287109375,
+      "process_rtf": 1.2834188176758707,
+      "sampled_max_rss_kib": 1276056,
+      "aoss0_millic_min_max": [
+        39300,
+        72600
+      ],
+      "transfer_counters": [
+        {
+          "kind": "htp_transfer_counters",
+          "schema": 1,
+          "process_id": 30615,
+          "session_id": 0,
+          "device_id": 0,
+          "tensor_set_calls": 26612,
+          "tensor_set_logical_bytes": 1837559664,
+          "tensor_get_calls": 13232,
+          "tensor_get_logical_bytes": 4612324928,
+          "repack_set_calls": 243,
+          "repack_set_logical_bytes": 613875712,
+          "repack_get_calls": 0,
+          "repack_get_logical_bytes": 0,
+          "batch_dispatches": 12531,
+          "dispatched_operations": 1689240,
+          "flush_calls": 62390,
+          "empty_flush_calls": 50062,
+          "physical_ddr_bytes_measured": false
+        }
+      ]
+    }
+  ],
+  "excluded_trials": {
+    "long-A2": {
+      "label": "long-A2",
+      "exit": 0,
+      "wall_ms": 84561.17366600665,
+      "all_top_app": false,
+      "cpuset_counts": {
+        "/top-app": 661,
+        "/foreground": 178
+      },
+      "samples": 1474560,
+      "speaker_ms": 1015,
+      "mimi_ms": 10895,
+      "reference_cache_hit": false,
+      "frames": 768,
+      "duration_s": 61.44,
+      "load_ms": 2592.631,
+      "generate_ms": 46487,
+      "decode_ms": 23095,
+      "total_ms": 81537,
+      "synth_wall_ms": 81595.964,
+      "rms": 0.0310115219,
+      "rss_peak_bytes": 1220808704,
+      "-codes.i32_sha256": "009f56e03ef2acd36969962d3f5b6d13761a28ddec6ae8ded44ac3c79ce3f2f0",
+      "-audio.f32_sha256": "418df1acf6869f1cd52de99748371173c1e67b7e41c70be633f8832447fc082e",
+      "-reference-codes.i32_sha256": "0b1a169d1db142301d2dade1d0ee9dd9da1f60a15bb93cb52062e212b7d0b6f1",
+      ".wav_sha256": "5f7f1ce7a91aa6e57c1a9612f676876826e303e6dee6cc438fa4f0ed62d45d25",
+      "synthesis_rtf": 1.327099609375,
+      "process_rtf": 1.3763211859701605
+    },
+    "short-B": {
+      "label": "short-B",
+      "exit": 0,
+      "wall_ms": 10467.796557990368,
+      "all_top_app": true,
+      "cpuset_counts": {
+        "/top-app": 104
+      },
+      "samples": 184320,
+      "speaker_ms": 52,
+      "mimi_ms": 1047,
+      "reference_cache_hit": false,
+      "frames": 96,
+      "duration_s": 7.68,
+      "load_ms": 1764.637,
+      "generate_ms": 4652,
+      "decode_ms": 2732,
+      "total_ms": 8510,
+      "synth_wall_ms": 8517.223,
+      "rms": 0.0177565748,
+      "rss_peak_bytes": 1286578176,
+      "-codes.i32_sha256": "4ed0f3e5a6edbc5471cb48298e0f7ff9972c1ae5d12471a4356f7ec31a8a7e3f",
+      "-audio.f32_sha256": "3db04194cf120825e4dd3eb76b972256240249d436ae2649a6bcf21047f687d4",
+      "-reference-codes.i32_sha256": "80bc0bb38d057323b3c8dcad2eb3c95b158763953235b4879211ac137842d4be",
+      ".wav_sha256": "b0cf06c2a817303476cab70a0971cbc6f1800e5e0f952345c02de56edae4bae2",
+      "synthesis_rtf": 1.1080729166666667,
+      "process_rtf": 1.3629943434883294
+    },
+    "long-B": {
+      "label": "long-B",
+      "exit": 0,
+      "wall_ms": 80501.12856301712,
+      "all_top_app": true,
+      "cpuset_counts": {
+        "/top-app": 799
+      },
+      "samples": 1474560,
+      "speaker_ms": 1001,
+      "mimi_ms": 9403,
+      "reference_cache_hit": false,
+      "frames": 768,
+      "duration_s": 61.44,
+      "load_ms": 2196.066,
+      "generate_ms": 44157,
+      "decode_ms": 23293,
+      "total_ms": 77908,
+      "synth_wall_ms": 77972.742,
+      "rms": 0.0310115219,
+      "rss_peak_bytes": 1303552000,
+      "-codes.i32_sha256": "009f56e03ef2acd36969962d3f5b6d13761a28ddec6ae8ded44ac3c79ce3f2f0",
+      "-audio.f32_sha256": "418df1acf6869f1cd52de99748371173c1e67b7e41c70be633f8832447fc082e",
+      "-reference-codes.i32_sha256": "0b1a169d1db142301d2dade1d0ee9dd9da1f60a15bb93cb52062e212b7d0b6f1",
+      ".wav_sha256": "5f7f1ce7a91aa6e57c1a9612f676876826e303e6dee6cc438fa4f0ed62d45d25",
+      "synthesis_rtf": 1.2680338541666667,
+      "process_rtf": 1.3102397227053568
+    },
+    "short-final-B": {
+      "label": "short-final-B",
+      "exit": 0,
+      "wall_ms": 10379.702965001343,
+      "all_top_app": true,
+      "cpuset_counts": {
+        "/top-app": 103
+      },
+      "samples": 184320,
+      "speaker_ms": 53,
+      "mimi_ms": 1085,
+      "reference_cache_hit": false,
+      "frames": 96,
+      "duration_s": 7.68,
+      "load_ms": 1624.055,
+      "generate_ms": 4723,
+      "decode_ms": 2636,
+      "total_ms": 8539,
+      "synth_wall_ms": 8547.229,
+      "rms": 0.0177565748,
+      "rss_peak_bytes": 1286553600,
+      "-codes.i32_sha256": "4ed0f3e5a6edbc5471cb48298e0f7ff9972c1ae5d12471a4356f7ec31a8a7e3f",
+      "-audio.f32_sha256": "3db04194cf120825e4dd3eb76b972256240249d436ae2649a6bcf21047f687d4",
+      "-reference-codes.i32_sha256": "80bc0bb38d057323b3c8dcad2eb3c95b158763953235b4879211ac137842d4be",
+      ".wav_sha256": "b0cf06c2a817303476cab70a0971cbc6f1800e5e0f952345c02de56edae4bae2",
+      "synthesis_rtf": 1.1118489583333333,
+      "process_rtf": 1.3515238235678833
+    },
+    "long-final-B": {
+      "label": "long-final-B",
+      "exit": 0,
+      "wall_ms": 78369.42455399549,
+      "all_top_app": false,
+      "cpuset_counts": {
+        "/top-app": 755,
+        "/foreground": 23
+      },
+      "samples": 1474560,
+      "speaker_ms": 962,
+      "mimi_ms": 8675,
+      "reference_cache_hit": false,
+      "frames": 768,
+      "duration_s": 61.44,
+      "load_ms": 1592.95,
+      "generate_ms": 43898,
+      "decode_ms": 22815,
+      "total_ms": 76386,
+      "synth_wall_ms": 76440.13,
+      "rms": 0.0310115219,
+      "rss_peak_bytes": 1303920640,
+      "-codes.i32_sha256": "009f56e03ef2acd36969962d3f5b6d13761a28ddec6ae8ded44ac3c79ce3f2f0",
+      "-audio.f32_sha256": "418df1acf6869f1cd52de99748371173c1e67b7e41c70be633f8832447fc082e",
+      "-reference-codes.i32_sha256": "0b1a169d1db142301d2dade1d0ee9dd9da1f60a15bb93cb52062e212b7d0b6f1",
+      ".wav_sha256": "5f7f1ce7a91aa6e57c1a9612f676876826e303e6dee6cc438fa4f0ed62d45d25",
+      "synthesis_rtf": 1.24326171875,
+      "process_rtf": 1.2755440194335204
+    }
+  },
+  "identities": {
+    "../../models/qwen3-tts-0.6b-q8_0.gguf": {
+      "sha256": "da523a41f074e8a10fe00d34a4ebe26467a3a47c73e81c31d1c5e13c5a7f8405",
+      "bytes": 1342926464
+    },
+    "../../models/qwen3-tts-tokenizer-f16-f32.gguf": {
+      "sha256": "251363c2b816ec71765db86dc4e9f608943170b24506d03dfc757f420f043a19",
+      "bytes": 453435424
+    },
+    ".cache/npu-max/app-build/tools/npu/npu-max-test-generation-synthesis": {
+      "sha256": "755cd6cd360d64d29e92df4c7b902d4f140e854a72a729808b2feb3ca6f9d31d",
+      "bytes": 529336
+    },
+    ".cache/generate-opt-20261114/before-synthesis": {
+      "sha256": "af97fece38930a80454999474c305569dbf8b8e4e554ae882ec887fac7f82696",
+      "bytes": 527064
+    },
+    ".cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so": {
+      "sha256": "c452fed07878e2ec322b108a1d65ff06392d238ca410f1cf034165c0b29b17c0",
+      "bytes": 325928
+    },
+    ".cache/npu-max/build/src/ggml-hexagon/libggml-htp-v79.so": {
+      "sha256": "b6dad7785e4eee9a50d5cbe7ad1f2474dc0147e51d1b5a6cf43475d92b99f94f",
+      "bytes": 460648
+    },
+    "short-reference.txt": {
+      "sha256": "c9774365637a69cc40f00b26912f11af9369144fc441d5e43c185b4bb4dc8e63",
+      "bytes": 62
+    },
+    "long-reference.txt": {
+      "sha256": "76ba944e886fe125e8e85cfb8620bd8f23087980e5334c63a6aabad2ced99c66",
+      "bytes": 377
+    },
+    "short-text.txt": {
+      "sha256": "a1ce705c53f24fa14f481bca66846e360efeb0af1be99949dfd676212a32d12d",
+      "bytes": 84
+    },
+    "long-text.txt": {
+      "sha256": "e440fcb26443a3c7d2308d4f5e295485e10f2c3edb3840718465c5813ade3ee4",
+      "bytes": 2874
+    },
+    ".cache/investigation-20261113/reference-3s.wav": {
+      "sha256": "e02fe82e18d37ec138a637f5726347d6fca8125f1ff63e58bb69a027811c9a7f",
+      "bytes": 529244
+    },
+    "../../smalldon.wav": {
+      "sha256": "e60cd46d4c1150762d6b13cab4aff16ce25091f47a128fa34274a80a96bcfe15",
+      "bytes": 4178016
+    }
+  },
+  "protected": {
+    "npu.sh": true,
+    "tools/npu/launch.py": true,
+    "tools/npu/native-env.sh": true,
+    ".cache/npu/app-build/qwen3-tts-cli": true,
+    ".cache/npu/build/src/ggml-hexagon/libggml-htp-v79.so": true
+  },
+  "float_audio_codes_wav_reference_codes_bit_exact": true,
+  "focused_tests": [
+    "0.6B HTP original/view/original",
+    "1.7B HTP original/view/original",
+    "CPU unchanged-path control"
+  ],
+  "dsp_profile": {
+    "scope": "8-frame seeded ICL Generate only, instrumented PROFILE=1, not an A/B performance estimate",
+    "op_groups": {
+      "MUL_MAT": [
+        4832,
+        422222
+      ],
+      "ADD": [
+        1774,
+        3188
+      ],
+      "SILU": [
+        91,
+        2189
+      ],
+      "RMS_NORM+MUL": [
+        3650,
+        12325
+      ],
+      "ROPE": [
+        1760,
+        7753
+      ],
+      "CPY": [
+        1760,
+        4052
+      ],
+      "CONT": [
+        1004,
+        35856
+      ],
+      "DIAG_MASK_INF": [
+        124,
+        620
+      ],
+      "SOFT_MAX": [
+        124,
+        2937
+      ],
+      "MUL": [
+        84,
+        1788
+      ],
+      "CONCAT": [
+        8,
+        44
+      ],
+      "SWIGLU": [
+        796,
+        3730
+      ],
+      "FLASH_ATTN_EXT": [
+        756,
+        17020
+      ]
+    },
+    "batches": 137,
+    "batch_host_sum_usec": 531715,
+    "batch_dsp_op_sum_usec": 513724
+  },
+  "seeded_control": {
+    "seed": 20261114,
+    "temperature": 0.9,
+    "frames": 8,
+    "code_ids": 128,
+    "bit_exact": true
+  },
+  "raw_evidence": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/generate-opt-20261114",
+  "validation": {
+    "release_build": "passed",
+    "final_htp_projection_models": [
+      "0.6B",
+      "1.7B"
+    ],
+    "projection_controls": "original/view/original bit-exact; pointer ownership, reload/unload, failed load",
+    "cpu_unchanged_path_control": "passed",
+    "final_full_icl_trials": "all six foreground /top-app CPUs 0-7",
+    "full_float_codes_reference_codes_wav_bit_exact": true,
+    "seeded_temperature_09_control": "passed",
+    "nov13_pcm_payload_reproduced": true,
+    "ggml_submodule_unchanged": true
+  }
+}

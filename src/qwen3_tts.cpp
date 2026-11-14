@@ -1222,6 +1222,7 @@ tts_result Qwen3TTS::synthesize_with_voice(const std::string & text,
             std::vector<int32_t> ref_codes;
             int32_t n_ref_frames = 0;
             bool mimi_ok = false;
+            const int64_t t_mimi_start = get_time_ms();
             if (cache_hit && voice_ref_cache_.has_mimi_codes && voice_ref_cache_.n_ref_frames > 0) {
                 ref_codes    = voice_ref_cache_.ref_codes;
                 n_ref_frames = voice_ref_cache_.n_ref_frames;
@@ -1234,6 +1235,11 @@ tts_result Qwen3TTS::synthesize_with_voice(const std::string & text,
                     voice_ref_cache_.ref_codes      = ref_codes;
                     voice_ref_cache_.n_ref_frames   = n_ref_frames;
                 }
+            }
+            if (params.print_timing) {
+                fprintf(stderr, "  [ICL reference] speaker=%lld ms Mimi=%lld ms cached=%d\n",
+                        (long long)result.t_encode_ms,
+                        (long long)(get_time_ms() - t_mimi_start), cache_hit ? 1 : 0);
             }
             if (mimi_ok) {
 
