@@ -1,0 +1,153 @@
+{
+  "scope": "One original/candidate/original short 0.6B HTP ICL sequence; process cold, disk cache uncontrolled; not a 120-second rebenchmark",
+  "application_baseline": "723f077",
+  "ggml": "717597a2aa208a78b773a146544f4d28825ff08b",
+  "trials": [
+    {
+      "label": "A1",
+      "exit": 0,
+      "wall_ms": 16415.214212000137,
+      "stages": {
+        "Tokenize": 0,
+        "Encode": 57,
+        "Generate": 5559,
+        "Decode": 2754,
+        "Total": 13490
+      },
+      "all_top_app": true,
+      "all_foreground": true,
+      "samples": 163,
+      "duration_s": 7.68,
+      "rate": 24000,
+      "channels": 1,
+      "rms": 0.017752558369299013,
+      "peak": 0.26104736328125,
+      "wav_sha256": "6f42537140a14fed4c7362b60cd7bf9d1c1184cadcce56ec157a5b5c56f37c4c",
+      "cpuset_counts": {
+        "/top-app": 163
+      },
+      "thermal_zone0_millic_min_max": [
+        37000,
+        67200
+      ]
+    },
+    {
+      "label": "B",
+      "exit": 0,
+      "wall_ms": 11982.442704000277,
+      "stages": {
+        "Tokenize": 0,
+        "Encode": 52,
+        "Generate": 5659,
+        "Decode": 2708,
+        "Total": 9515
+      },
+      "all_top_app": true,
+      "all_foreground": true,
+      "samples": 119,
+      "duration_s": 7.68,
+      "rate": 24000,
+      "channels": 1,
+      "rms": 0.017752558369299013,
+      "peak": 0.26104736328125,
+      "wav_sha256": "6f42537140a14fed4c7362b60cd7bf9d1c1184cadcce56ec157a5b5c56f37c4c",
+      "cpuset_counts": {
+        "/top-app": 119
+      },
+      "thermal_zone0_millic_min_max": [
+        45900,
+        71000
+      ]
+    },
+    {
+      "label": "A2",
+      "exit": 0,
+      "wall_ms": 15912.68593200948,
+      "stages": {
+        "Tokenize": 0,
+        "Encode": 56,
+        "Generate": 5484,
+        "Decode": 2722,
+        "Total": 13431
+      },
+      "all_top_app": true,
+      "all_foreground": true,
+      "samples": 158,
+      "duration_s": 7.68,
+      "rate": 24000,
+      "channels": 1,
+      "rms": 0.017752558369299013,
+      "peak": 0.26104736328125,
+      "wav_sha256": "6f42537140a14fed4c7362b60cd7bf9d1c1184cadcce56ec157a5b5c56f37c4c",
+      "cpuset_counts": {
+        "/top-app": 158
+      },
+      "thermal_zone0_millic_min_max": [
+        45900,
+        71400
+      ]
+    }
+  ],
+  "identities": {
+    "../../models/qwen3-tts-0.6b-q8_0.gguf": {
+      "sha256": "da523a41f074e8a10fe00d34a4ebe26467a3a47c73e81c31d1c5e13c5a7f8405",
+      "bytes": 1342926464,
+      "realpath": "/data/data/com.termux/files/home/qwen3-tts-workspace/models/qwen3-tts-0.6b-q8_0.gguf"
+    },
+    "../../models/qwen3-tts-tokenizer-f16-f32.gguf": {
+      "sha256": "251363c2b816ec71765db86dc4e9f608943170b24506d03dfc757f420f043a19",
+      "bytes": 453435424,
+      "realpath": "/data/data/com.termux/files/home/qwen3-tts-workspace/models/qwen3-tts-tokenizer-f16-f32.gguf"
+    },
+    ".cache/investigation-20261113/before-qwen3-tts-cli": {
+      "sha256": "9b01766aeda87994d90dbd971e34180d2d84f62e8bd3c0f5e801221172c81867",
+      "bytes": 1216992,
+      "realpath": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/investigation-20261113/before-qwen3-tts-cli"
+    },
+    ".cache/npu-max/app-build/qwen3-tts-cli": {
+      "sha256": "06ae9a4a14d925b390c2430cbb5fc806caa2983559fd1de50a3115c335295975",
+      "bytes": 1218128,
+      "realpath": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/app-build/qwen3-tts-cli"
+    },
+    ".cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so": {
+      "sha256": "c452fed07878e2ec322b108a1d65ff06392d238ca410f1cf034165c0b29b17c0",
+      "bytes": 325928,
+      "realpath": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-hexagon.so.0.15.2"
+    },
+    ".cache/npu-max/build/src/ggml-hexagon/libggml-htp-v79.so": {
+      "sha256": "b6dad7785e4eee9a50d5cbe7ad1f2474dc0147e51d1b5a6cf43475d92b99f94f",
+      "bytes": 460648,
+      "realpath": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-hexagon/libggml-htp-v79.so"
+    },
+    ".cache/npu-max/build/src/ggml-opencl/libggml-opencl.so": {
+      "sha256": "5b715d5ee9becc367f60c757b1999c74330be99529b2bd00ad10df1ffebe4b4b",
+      "bytes": 1847440,
+      "realpath": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/npu-max/build/src/ggml-opencl/libggml-opencl.so.0.15.2"
+    },
+    ".cache/investigation-20261113/reference-3s.wav": {
+      "sha256": "e02fe82e18d37ec138a637f5726347d6fca8125f1ff63e58bb69a027811c9a7f",
+      "bytes": 529244,
+      "realpath": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/investigation-20261113/reference-3s.wav"
+    }
+  },
+  "protected": {
+    "npu.sh": true,
+    "tools/npu/launch.py": true,
+    "tools/npu/native-env.sh": true,
+    ".cache/npu/app-build/qwen3-tts-cli": true,
+    ".cache/npu/build/src/ggml-hexagon/libggml-htp-v79.so": true
+  },
+  "mimi_intermediate_tensors_bit_exact": true,
+  "mimi_reference_codes_bit_exact": true,
+  "mimi_reference_frames": 38,
+  "mimi_reference_ids": 608,
+  "conv_oracle_cases": 7560,
+  "scalar_option_off_passed": true,
+  "raw_evidence": "/data/data/com.termux/files/home/qwen3-tts-workspace/repos/Markon101-qwen3-tts.cpp/.cache/investigation-20261113",
+  "test_results": {
+    "ctest_simd_on": "1/1 passed",
+    "ctest_simd_off": "1/1 passed",
+    "oracle_cases_per_configuration": 7560,
+    "release_build": "passed"
+  }
+}

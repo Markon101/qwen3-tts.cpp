@@ -14,7 +14,7 @@
 namespace qwen3_tts {
 
 // ============================================================
-// Utility helpers (CPU-only — encoder is not on the hot path)
+// Utility helpers (CPU-only reference conditioning for ICL)
 // ============================================================
 
 // Helper: get tensor float data into a host vector
@@ -100,8 +100,64 @@ void MimiEncoder::apply_causal_conv1d(
 
     // Weight layout: PyTorch [OC, IC, K] stored C-contiguous in GGUF bytes.
     // w[oc, ic, k] = w[oc * in_ch * kernel + ic * kernel + k]
+    int32_t scalar_start = 0;
+#ifdef QWEN3_TTS_MIMI_CONV_SIMD
+    // Pack independent output channels together so the compiler can vectorize
+    // without reassociating a reduction. Each lane still accumulates k then ic
+    // in exactly the scalar order, including bias and causal padding. Keep this
+    // temporary local: no model lifetime/cache invalidation or extra threads.
+    constexpr int32_t lanes = 8;
+    // On the validated Release build, pointwise convolutions round SIMD
+    // products before their ordered sum, while strided weights use FMA.
+    // Match both below. Keep the original loop for irregular input channels
+    // (including the one-channel input convolution and reduction tails).
+    scalar_start = (in_ch >= 16 && in_ch % 16 == 0) ? out_ch / lanes * lanes : 0;
+    if (scalar_start > 0) {
+        const size_t block_size = (size_t)kernel * in_ch * lanes;
+        std::vector<float> packed((size_t)scalar_start * in_ch * kernel);
+        for (int32_t oc = 0; oc < scalar_start; oc += lanes) {
+            float * block = packed.data() + (size_t)(oc / lanes) * block_size;
+            for (int32_t k = 0; k < kernel; ++k) {
+                for (int32_t ic = 0; ic < in_ch; ++ic) {
+                    for (int32_t lane = 0; lane < lanes; ++lane) {
+                        block[((size_t)k * in_ch + ic) * lanes + lane] =
+                            w[(size_t)(oc + lane) * in_ch * kernel + (size_t)ic * kernel + k];
+                    }
+                }
+            }
+        }
+        for (int32_t t = 0; t < out_len; ++t) {
+            for (int32_t oc = 0; oc < scalar_start; oc += lanes) {
+                float sums[lanes];
+                for (int32_t lane = 0; lane < lanes; ++lane)
+                    sums[lane] = b ? b[oc + lane] : 0.0f;
+                const float * block = packed.data() + (size_t)(oc / lanes) * block_size;
+                for (int32_t k = 0; k < kernel; ++k) {
+                    const int32_t src_t = t * stride + k * dilation - padding_left;
+                    if (src_t < 0 || src_t >= in_len) continue;
+                    const float * row = input + (size_t)src_t * in_ch;
+                    for (int32_t ic = 0; ic < in_ch; ++ic) {
+                        const float * weights = block + ((size_t)k * in_ch + ic) * lanes;
+                        for (int32_t lane = 0; lane < lanes; ++lane) {
+                            if (kernel == 1) {
+                                // Contiguous scalar weights use rounded SIMD
+                                // products followed by an ordered scalar sum.
+                                const float product = row[ic] * weights[lane];
+                                sums[lane] += product;
+                            } else {
+                                sums[lane] += row[ic] * weights[lane];
+                            }
+                        }
+                    }
+                }
+                for (int32_t lane = 0; lane < lanes; ++lane)
+                    output[(size_t)t * out_ch + oc + lane] = sums[lane];
+            }
+        }
+    }
+#endif
     for (int32_t t = 0; t < out_len; ++t) {
-        for (int32_t oc = 0; oc < out_ch; ++oc) {
+        for (int32_t oc = scalar_start; oc < out_ch; ++oc) {
             float sum = b ? b[oc] : 0.0f;
             for (int32_t k = 0; k < kernel; ++k) {
                 int32_t src_t = t * stride + k * dilation - padding_left;

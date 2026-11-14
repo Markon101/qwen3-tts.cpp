@@ -38,3 +38,7 @@ target_link_libraries(npu-max-test-token-generation PRIVATE tts_transformer text
 
 add_executable(npu-max-test-execution-trace ../npu-max/test-execution-trace.cpp)
 target_link_libraries(npu-max-test-execution-trace PRIVATE gguf_loader)
+
+add_executable(npu-max-test-mimi-conv ../npu-max/test-mimi-conv.cpp)
+target_link_libraries(npu-max-test-mimi-conv PRIVATE mimi_encoder)
+add_test(NAME mimi_conv_test COMMAND npu-max-test-mimi-conv)

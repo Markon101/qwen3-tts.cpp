@@ -252,6 +252,10 @@ target_link_libraries(audio_tokenizer_encoder PUBLIC
 add_library(mimi_encoder STATIC
     src/mimi_encoder.cpp
 )
+option(QWEN3_TTS_MIMI_CONV_SIMD "Vectorize independent Mimi convolution output channels" ON)
+if(QWEN3_TTS_MIMI_CONV_SIMD)
+    target_compile_definitions(mimi_encoder PRIVATE QWEN3_TTS_MIMI_CONV_SIMD)
+endif()
 target_include_directories(mimi_encoder PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${GGML_DIR}/include
